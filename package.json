@@ -1,0 +1,26 @@
+{
+  "name": "cidnow",
+  "version": "0.2.0",
+  "private": true,
+  "description": "CIDnow - Constatazione Amichevole di Incidente digitale",
+  "scripts": {
+    "build": "bash scripts/build-www.sh",
+    "ios": "npm run build && npx cap sync ios && npx cap open ios",
+    "android": "npm run build && npx cap sync android && npx cap open android",
+    "icons": "npx capacitor-assets generate --iconBackgroundColor \"#0A0E17\" --assetPath assets"
+  },
+  "dependencies": {
+    "@capacitor/core": "^6.1.2",
+    "@capacitor/camera": "^6.0.2",
+    "@capacitor/geolocation": "^6.0.1",
+    "@capacitor/filesystem": "^6.0.1",
+    "@capacitor/share": "^6.0.2",
+    "@capacitor-community/speech-recognition": "^6.0.1"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.1.2",
+    "@capacitor/ios": "^6.1.2",
+    "@capacitor/android": "^6.1.2",
+    "@capacitor/assets": "^3.0.5"
+  }
+}
