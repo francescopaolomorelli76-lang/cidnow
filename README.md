@@ -26,6 +26,10 @@ Versione 0.2 (prima funzione: compilazione completa del CID dal luogo dell'incid
 - **Vie della città**: scegliendo il comune, la via si completa con i suggerimenti di OpenStreetMap (servizio Photon, serve la rete) e il CAP esatto si inserisce da solo.
 - **Lettura documenti sul telefono** (Tesseract, senza server e senza inviare foto): patente (campi 1, 2, 3, 4b, 5, 9), codice fiscale, targa, polizza. Il codice fiscale si calcola dai dati letti.
 
+## Novità 0.5
+- **Riquadro 13 disegnato in automatico** dalla dinamica (circostanze, zone d'urto, tipo di luogo, via): tamponamento, incrocio con precedenza, frontale, cambio di corsia/sorpasso, rotatoria, parcheggio, retromarcia, portiera, veicolo in sosta. Se il disegno viene ritoccato a mano, nel PDF va quello.
+- **REC con trascrizione sul telefono** (Whisper base, ~80 MB scaricati una volta da Hugging Face e poi in cache): si registra, allo STOP compare il testo. Su iPhone il riconoscimento live di Safari è disattivato perché va in conflitto con la registrazione.
+
 ## Struttura
 - `src/app.html` — l'app (HTML/CSS/JS, nessun build step)
 - `src/data/comuni.json` — comuni (ISTAT, CC BY 3.0 IT, via matteocontrini/comuni-json) e codici catastali (via codice-fiscale-js, CC BY-SA)

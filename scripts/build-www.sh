@@ -51,7 +51,7 @@ self.addEventListener("install", e => { e.waitUntil(caches.open(CACHE).then(c =>
 self.addEventListener("activate", e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())); });
 self.addEventListener("fetch", e => {
   const u = new URL(e.request.url);
-  if (e.request.method !== "GET" || u.hostname.includes("nominatim") || u.hostname.includes("photon")) return; // l'indirizzo dal GPS va sempre chiesto in rete
+  if (e.request.method !== "GET" || (u.origin !== location.origin && !u.hostname.endsWith("gstatic.com") && !u.hostname.endsWith("googleapis.com"))) return; // GPS, vie e modello vocale: rete diretta // l'indirizzo dal GPS va sempre chiesto in rete
   e.respondWith(caches.match(e.request).then(hit => hit || fetch(e.request).then(res => {
     if (res.ok && (u.origin === location.origin || u.hostname.endsWith("gstatic.com") || u.hostname.endsWith("googleapis.com"))) { const cp = res.clone(); caches.open(CACHE).then(c => c.put(e.request, cp)); }
     return res; }).catch(() => caches.match("index.html"))));

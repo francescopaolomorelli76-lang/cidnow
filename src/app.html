@@ -235,7 +235,7 @@ details.sec .in{padding:0 14px 14px}
 /* ============================================================
    CIDnow — Constatazione Amichevole di Incidente (CAI / CID)
    ============================================================ */
-const APP = { name: "CIDnow", version: "0.4.0" };
+const APP = { name: "CIDnow", version: "0.5.0" };
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -520,7 +520,7 @@ const IS_PREVIEW = !!window.claude;
 const OPT_CONSENTS = [
   ["gps", "Posizione (GPS)", "Per inserire in automatico luogo, indirizzo e tipo di strada dell'incidente. Usata solo durante la compilazione."],
   ["camera", "Fotocamera e foto", "Per fotografare danni, targa e documenti e allegarli al CID. Le foto restano sul telefono finché non condividi il PDF."],
-  ["mic", "Microfono e registrazione vocale (REC)", "Per registrare e trascrivere la tua versione dei fatti."],
+  ["mic", "Microfono e registrazione vocale (REC)", "Per registrare e trascrivere la tua versione dei fatti. La trascrizione avviene sul telefono: l'audio non viene inviato a nessuno."],
   ["ai", "Analisi automatica delle immagini", "Le foto vengono inviate a un servizio di intelligenza artificiale per riconoscere targa, documenti e tipo di urto. Senza consenso compili a mano."]
 ];
 const consentOn = k => !!S.consent?.[k];
@@ -739,7 +739,8 @@ function stepDinamica(r) {
     <tfoot><tr><td class="cb"><b>${r.A.circ.length}</b></td><td></td><td class="muted">Numero di caselle segnate</td><td class="cb"><b>${r.B.circ.length}</b></td></tr></tfoot></table></div></section>
   <section class="card a">${zonePicker("A", r.A.urto)}<label class="fld" for="A-danni"><span>11 · Danni visibili al veicolo A</span><textarea id="A-danni" data-bind="A.danni">${esc(r.A.danni)}</textarea></label></section>
   <section class="card b">${zonePicker("B", r.B.urto)}<label class="fld" for="B-danni"><span>11 · Danni visibili al veicolo B</span><textarea id="B-danni" data-bind="B.danni">${esc(r.B.danni)}</textarea></label></section>
-  <section class="card"><div class="row" style="justify-content:space-between"><h3>13 · Grafico dell'incidente</h3><button class="btn small" data-act="autoSketch">Genera schizzo</button></div>
+  <section class="card"><div class="row" style="justify-content:space-between"><h3>13 · Grafico dell'incidente</h3><button class="btn small" data-act="autoSketch">Rigenera dalla dinamica</button></div>
+    <span class="muted" style="font-size:12px">${r.schizzoManual ? "Disegno modificato a mano: va nel PDF così com'è." : "Disegnato in automatico da circostanze, zone d'urto e luogo. Se cambi la dinamica si aggiorna da solo. Puoi ritoccarlo con il dito."}</span>
     <div class="pad sketch"><canvas id="sketch"></canvas><span class="hint">disegna con il dito</span></div>
     <div class="row"><div class="seg" style="flex:1">${[["#1F5FD6", "Tratto A"], ["#C99A00", "Tratto B"], ["#222222", "Strada"]].map(([c, l], i) => `<button data-act="pen" data-c="${c}" class="${(S.pen || "#222222") === c ? "on" : ""}">${l}</button>`).join("")}</div><button class="btn small" data-act="clearSketch">Cancella</button></div></section>
   <section class="card"><h3>14 · Osservazioni</h3><div class="grid2">
@@ -753,10 +754,13 @@ function stepRec(r) {
     return `<section class="card ${who.toLowerCase()}"><div class="row" style="justify-content:space-between"><b>${esc(name)}</b><span class="tag ${who.toLowerCase()}">${who}</span></div>
       ${hint ? `<div class="banner info" style="font-size:13px"><span class="ic">i</span><div>${hint}</div></div>` : ""}
       <div class="rec"><button class="recbtn ${on ? "on" : ""}" data-act="rec" data-who="${who}" aria-label="${on ? "Ferma registrazione" : "Avvia registrazione"}">${on ? "STOP" : "REC"}</button>
-        <div><div class="timer" id="timer-${who}">${on ? "00:00" : P.recDur ? fmtDur(P.recDur) : "00:00"}</div><div class="muted" style="font-size:13px">${on ? "Sto registrando e trascrivendo… premi STOP alla fine" : P.recAudio ? "Registrazione salvata · premi REC per aggiungere" : "Premi REC, consenti il microfono e parla"}</div></div></div>
+        <div><div class="timer" id="timer-${who}">${on ? "00:00" : P.recDur ? fmtDur(P.recDur) : "00:00"}</div><div class="muted" style="font-size:13px">${on ? "Sto registrando… premi STOP alla fine: poi trascrivo" : P.recAudio ? "Registrazione salvata · premi REC per aggiungere" : "Premi REC, consenti il microfono e parla"}</div></div></div>
       ${S.recErr?.[who] ? `<div class="banner warn" style="font-size:13px"><span class="ic">!</span><div>${esc(S.recErr[who])}
         ${IS_PREVIEW || !navigator.mediaDevices ? `<div class="row" style="margin-top:8px"><label class="btn small" style="position:relative">Allega una registrazione<input type="file" accept="audio/*" capture data-act-file="audio" data-who="${who}" style="position:absolute;inset:0;opacity:0"></label></div>` : ""}</div></div>` : ""}
       ${S.recUrl?.[who] ? `<audio controls src="${S.recUrl[who]}" style="width:100%"></audio>` : ""}
+      ${S.asr?.[who]?.busy ? `<div class="banner info" style="font-size:13px"><span class="spin"></span><div id="asr-${who}">${esc(S.asr[who].msg)}</div></div>` : ""}
+      ${S.asr?.[who]?.err ? `<div class="banner warn" style="font-size:13px"><span class="ic">!</span><div>${esc(S.asr[who].err)}</div></div>` : ""}
+      ${S.recBlob?.[who] && !S.asr?.[who]?.busy && !on ? `<button class="btn small" data-act="retranscribe" data-who="${who}" style="align-self:flex-start">Trascrivi di nuovo la registrazione</button>` : ""}
       <label class="fld" for="${who}-rec"><span>Trascrizione della dichiarazione ${on ? "· in tempo reale" : "· puoi correggerla"}</span><textarea id="${who}-rec" data-bind="${who}.rec" style="min-height:120px" placeholder="Premi REC e racconta cosa è successo: il testo comparirà qui.">${esc(P.rec)}</textarea></label></section>`; };
   return `<div><h1>REC · La tua versione</h1><p class="muted" style="margin:6px 0 0">Ognuno può dichiarare a voce come sono andati i fatti. La dichiarazione viene allegata al CID, separata dal modulo firmato da entrambi.</p></div>
   ${card("A")}${card("B")}`;
@@ -798,7 +802,7 @@ function stepCID(r) {
   <section class="card"><div class="row" style="justify-content:space-between"><h3>${esc(r.tipo || "Incidente")}</h3><span class="mono coords">${esc(fmtDate(r.data))} · ${esc(r.ora)}</span></div>
     <div class="muted">${esc([r.luogo.via, r.luogo.civico, r.luogo.cap, r.luogo.comune, r.luogo.prov && "(" + r.luogo.prov + ")"].filter(Boolean).join(" ") || "Luogo non indicato")}</div>
     <div class="cidprev">${col("A")}${col("B")}</div>
-    ${r.schizzo ? `<img src="${r.schizzo}" alt="Grafico dell'incidente" style="border-radius:12px;border:1px solid var(--line)">` : ""}
+    <img src="${r.schizzoManual && r.schizzo ? r.schizzo : sketchDataUrl(r)}" alt="Grafico dell'incidente" style="border-radius:12px;border:1px solid var(--line);background:#fff">
     <div class="muted" style="font-size:13px">PDF: modulo ufficiale CAI compilato + ${r.photos.length} foto allegate · ${[r.A.rec && "dichiarazione A", r.B.rec && "dichiarazione B"].filter(Boolean).join(" · ") || "nessuna dichiarazione REC"}</div></section>
   ${editedBanner(r)}
   <div class="grid2"><button class="btn" data-act="goto" data-s="0">Modifica i dati</button><button class="btn" data-act="share">Condividi</button></div>
@@ -810,7 +814,7 @@ function stepCID(r) {
 function afterRender() {
   if (S.view !== "wizard") return;
   const r = S.r;
-  if (S.step === 3) { const c = $("#sketch"); if (c) S.sketchPad = drawPad(c, { color: S.pen || "#222222", width: 3, initial: r.schizzo, onChange: u => { r.schizzo = u; saveDraft(); }, jpeg: true }); }
+  if (S.step === 3) { const c = $("#sketch"); if (c) { S.sketchPad = drawPad(c, { color: S.pen || "#222222", width: 3, initial: r.schizzoManual ? r.schizzo : "", onChange: u => { r.schizzo = u; r.schizzoManual = !!u; saveDraft(); }, jpeg: true }); if (!r.schizzoManual) autoSketch(); } }
   if (S.step === 5) ["A", "B"].forEach(w => { const c = $("#sign" + w); if (c) drawPad(c, { color: "#0b1b4a", width: 2.6, initial: r["firma" + w], onChange: u => { r["firma" + w] = u; if (r.status === "completo") r["resign" + w] = !!u; saveDraft(); refreshBar(); } }); });
 }
 function actionsFor() {
@@ -836,39 +840,113 @@ function drawPad(canvas, o) {
   return { ctx, w, h, canvas, setColor(c) { o.color = c; }, clear() { ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, w, h); o.onChange?.(""); }, commit() { end.call(null); draw = false; o.onChange?.(canvas.toDataURL("image/jpeg", 0.85)); } };
 }
 
-/* ---------- Schizzo automatico ---------- */
+/* ---------- Grafico dell'incidente generato dalla dinamica (riquadro 13) ---------- */
+function sketchScenario(r) {
+  const A = r.A.circ, B = r.B.circ, t = (r.tipo || "").toLowerCase(), any = (...n) => n.some(x => A.includes(x) || B.includes(x));
+  if (r.place === "rotatoria" || any(6, 7)) return "rotatoria";
+  if (r.place === "parcheggio" || any(3, 4, 5)) return "parcheggio";
+  if (any(8) || t.includes("tampon")) return "tamponamento";
+  if (any(2)) return "portiera";
+  if (any(15) || t.includes("frontal")) return "frontale";
+  if (any(14) || t.includes("retromarcia")) return "retromarcia";
+  if (any(12, 13, 16, 17) || t.includes("incrocio") || t.includes("lateral") || r.place === "incrocio") return "incrocio";
+  if (any(9, 10, 11) || t.includes("strisci")) return "corsia";
+  if (any(1) || r.fermo !== "nessuno" || t.includes("fermo")) return "fermo";
+  return "strada";
+}
+function renderSketch(ctx, W, H, r) {
+  const k = Math.min(H / 368, W / 700), CL = 98 * k, CW = 44 * k, COL = { A: "#2F6FE0", B: "#E3AE00" }, INK = "#1b2230";
+  const other = w => (w === "A" ? "B" : "A"), has = (w, n) => r[w].circ.includes(n);
+  const front = w => r[w].urto.some(z => ["A", "AS", "AD"].includes(z)), rear = w => r[w].urto.some(z => ["P", "PS", "PD"].includes(z));
+  ctx.save(); ctx.clearRect(0, 0, W, H); ctx.lineCap = "round"; ctx.lineJoin = "round";
+  const roadH = (y, h, opp = true) => { ctx.fillStyle = "#dfe3ea"; ctx.fillRect(0, y, W, h); ctx.strokeStyle = "#8f98a8"; ctx.lineWidth = 2 * k; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.moveTo(0, y + h); ctx.lineTo(W, y + h); ctx.stroke();
+    ctx.save(); ctx.setLineDash(opp ? [26 * k, 18 * k] : [14 * k, 14 * k]); ctx.strokeStyle = opp ? "#ffffff" : "#ffffff"; ctx.lineWidth = 3 * k; ctx.beginPath(); ctx.moveTo(0, y + h / 2); ctx.lineTo(W, y + h / 2); ctx.stroke(); ctx.restore(); };
+  const roadV = (x, w, y0 = 0, y1 = H) => { ctx.fillStyle = "#dfe3ea"; ctx.fillRect(x, y0, w, y1 - y0); ctx.strokeStyle = "#8f98a8"; ctx.lineWidth = 2 * k; ctx.beginPath(); ctx.moveTo(x, y0); ctx.lineTo(x, y1); ctx.moveTo(x + w, y0); ctx.lineTo(x + w, y1); ctx.stroke();
+    ctx.save(); ctx.setLineDash([26 * k, 18 * k]); ctx.strokeStyle = "#fff"; ctx.lineWidth = 3 * k; ctx.beginPath(); ctx.moveTo(x + w / 2, y0); ctx.lineTo(x + w / 2, y1); ctx.stroke(); ctx.restore(); };
+  const car = (x, y, ang, w, note) => { ctx.save(); ctx.translate(x, y); ctx.rotate(ang);
+    ctx.fillStyle = "#1b2230"; [[-CL * 0.3, -CW / 2 - 2 * k], [CL * 0.25, -CW / 2 - 2 * k], [-CL * 0.3, CW / 2 - 4 * k], [CL * 0.25, CW / 2 - 4 * k]].forEach(([wx, wy]) => ctx.fillRect(wx, wy, 14 * k, 6 * k));
+    ctx.fillStyle = COL[w]; ctx.strokeStyle = INK; ctx.lineWidth = 2 * k; ctx.beginPath(); ctx.roundRect(-CL / 2, -CW / 2, CL, CW, 10 * k); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = "rgba(255,255,255,.75)"; ctx.beginPath(); ctx.roundRect(CL / 2 - 30 * k, -CW / 2 + 5 * k, 11 * k, CW - 10 * k, 3 * k); ctx.fill();
+    ctx.fillStyle = "rgba(255,255,255,.45)"; ctx.beginPath(); ctx.roundRect(-CL / 2 + 9 * k, -CW / 2 + 6 * k, 8 * k, CW - 12 * k, 3 * k); ctx.fill();
+    ctx.fillStyle = "#FFF6B0"; ctx.fillRect(CL / 2 - 4 * k, -CW / 2 + 3 * k, 3 * k, 7 * k); ctx.fillRect(CL / 2 - 4 * k, CW / 2 - 10 * k, 3 * k, 7 * k);
+    ctx.restore();
+    ctx.fillStyle = "#fff"; ctx.strokeStyle = INK; ctx.lineWidth = 1.5 * k; ctx.beginPath(); ctx.arc(x, y, 12 * k, 0, 7); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = INK; ctx.font = `bold ${15 * k}px Helvetica, Arial, sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(w, x, y + 1 * k);
+    if (note) { ctx.font = `${12 * k}px Helvetica, Arial, sans-serif`; ctx.fillStyle = INK; ctx.fillText(note, x, y + CW / 2 + 14 * k); } };
+  const tip = (x, y, ang, d = CL / 2) => [x - Math.cos(ang) * d, y - Math.sin(ang) * d]; // retro dell'auto
+  const trail = (pts, w) => { if (pts.length < 2) return; const c = COL[w]; ctx.save(); ctx.strokeStyle = c; ctx.fillStyle = c; ctx.lineWidth = 3.5 * k; ctx.setLineDash([10 * k, 8 * k]);
+    ctx.beginPath(); ctx.moveTo(...pts[0]); if (pts.length === 3) ctx.quadraticCurveTo(...pts[1], ...pts[2]); else pts.slice(1).forEach(p => ctx.lineTo(...p)); ctx.stroke(); ctx.setLineDash([]);
+    const [x2, y2] = pts.at(-1), [x1, y1] = pts.at(-2), a = Math.atan2(y2 - y1, x2 - x1), s = 13 * k;
+    ctx.beginPath(); ctx.moveTo(x2, y2); ctx.lineTo(x2 - s * Math.cos(a - 0.45), y2 - s * Math.sin(a - 0.45)); ctx.lineTo(x2 - s * Math.cos(a + 0.45), y2 - s * Math.sin(a + 0.45)); ctx.closePath(); ctx.fill(); ctx.restore(); };
+  const boom = (x, y) => { ctx.save(); ctx.translate(x, y); ctx.fillStyle = "#E0283C"; ctx.beginPath(); for (let i = 0; i < 16; i++) { const rr = (i % 2 ? 7 : 17) * k, a = i * Math.PI / 8; ctx.lineTo(rr * Math.cos(a), rr * Math.sin(a)); } ctx.closePath(); ctx.fill(); ctx.fillStyle = "#FFE14D"; ctx.beginPath(); ctx.arc(0, 0, 4.5 * k, 0, 7); ctx.fill(); ctx.restore(); };
+  const yieldSign = (x, y) => { ctx.save(); ctx.fillStyle = "#fff"; ctx.strokeStyle = "#E0283C"; ctx.lineWidth = 4 * k; ctx.beginPath(); ctx.moveTo(x - 13 * k, y - 10 * k); ctx.lineTo(x + 13 * k, y - 10 * k); ctx.lineTo(x, y + 13 * k); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.strokeStyle = "#555"; ctx.lineWidth = 2 * k; ctx.beginPath(); ctx.moveTo(x, y + 14 * k); ctx.lineTo(x, y + 26 * k); ctx.stroke(); ctx.restore(); };
+  const text = (s, x, y, align = "left", size = 13, bold = false) => { if (!s) return; ctx.font = `${bold ? "bold " : ""}${size * k}px Helvetica, Arial, sans-serif`; ctx.textAlign = align; ctx.textBaseline = "alphabetic"; ctx.fillStyle = "#3b4352"; ctx.fillText(s, x, y); };
+  const via = r.luogo.via || "";
+  const sc = sketchScenario(r), cx = W / 2, cy = H / 2, RH = 120 * k;
+  if (sc === "tamponamento" || sc === "fermo" || sc === "strada") {
+    roadH(cy - RH / 2, RH); const ly = cy + RH / 4;
+    let behind = has("B", 8) ? "B" : has("A", 8) ? "A" : rear("A") ? "B" : rear("B") ? "A" : r.fermo === "A" ? "B" : r.fermo === "B" ? "A" : "B";
+    const ahead = other(behind), xA = cx + CL * 0.55, xB = cx - CL * 0.55;
+    const stopped = w => has(w, 1) || r.fermo === w;
+    if (sc === "strada" && !r.A.urto.length && !r.B.urto.length) { car(cx - CL * 1.2, ly, 0, "A"); car(cx + CL * 1.2, cy - RH / 4, Math.PI, "B"); trail([[20 * k, ly], tip(cx - CL * 1.2, ly, 0)], "A"); trail([[W - 20 * k, cy - RH / 4], tip(cx + CL * 1.2, cy - RH / 4, Math.PI)], "B"); text("Dinamica da completare", cx, cy - RH / 2 - 14 * k, "center", 14, true); }
+    else { car(xA, ly, 0, ahead, stopped(ahead) ? "fermo" : ""); car(xB, ly, 0, behind); trail([[24 * k, ly], tip(xB, ly, 0)], behind); if (!stopped(ahead)) trail([[xA + CL / 2 + 8 * k, ly], [xA + CL / 2 + 90 * k, ly]], ahead); boom(cx, ly); }
+    text(via, 16 * k, cy - RH / 2 - 10 * k);
+  } else if (sc === "portiera") {
+    roadH(cy - RH / 2, RH); const ly = cy + RH / 4, opener = has("A", 2) ? "A" : "B", passer = other(opener), px = cx + CL * 0.2, py = cy + RH / 2 - CW / 2 - 4 * k;
+    car(px, py, 0, opener, "in sosta"); ctx.strokeStyle = COL[opener]; ctx.lineWidth = 5 * k; ctx.beginPath(); ctx.moveTo(px + 6 * k, py - CW / 2); ctx.lineTo(px - 18 * k, py - CW / 2 - 22 * k); ctx.stroke();
+    const qx = px - CL * 0.95, qy = cy - 2 * k; car(qx, qy, 0, passer); trail([[24 * k, qy], tip(qx, qy, 0)], passer); boom(px - 16 * k, py - CW / 2 - 18 * k); text(via, 16 * k, cy - RH / 2 - 10 * k);
+  } else if (sc === "frontale") {
+    roadH(cy - RH / 2, RH); const inv = has("A", 15) ? "A" : has("B", 15) ? "B" : null, w1 = inv || "A", w2 = other(w1);
+    const y1 = inv ? cy - RH / 4 + 10 * k : cy + RH / 4, a1 = inv ? -0.25 : 0, y2 = cy - RH / 4;
+    car(cx - CL * 0.55, y1, a1, w1); car(cx + CL * 0.55, y2, Math.PI, w2); trail([[24 * k, cy + RH / 4], tip(cx - CL * 0.55, y1, a1)], w1); trail([[W - 24 * k, y2], tip(cx + CL * 0.55, y2, Math.PI)], w2); boom(cx, (y1 + y2) / 2); text(via, 16 * k, cy - RH / 2 - 10 * k);
+  } else if (sc === "corsia") {
+    roadH(cy - RH / 2, RH, false); const ch = has("A", 10) || has("A", 11) ? "A" : has("B", 10) || has("B", 11) ? "B" : "B", st = other(ch), ly = cy + RH / 4, uy = cy - RH / 4 + 8 * k;
+    car(cx + CL * 0.3, ly, 0, st); car(cx - CL * 0.35, uy + 6 * k, 0.26, ch); trail([[24 * k, cy + RH / 4], tip(cx + CL * 0.3, ly, 0)], st); trail([[24 * k, cy - RH / 4], [cx - CL * 1.2, cy - RH / 4], tip(cx - CL * 0.35, uy + 6 * k, 0.26)], ch);
+    boom(cx - 6 * k, ly - CW / 2); text(has(ch, 11) ? "sorpasso" : "cambio di corsia", cx - CL * 0.35, cy - RH / 2 - 10 * k, "center", 12); text(via, 16 * k, cy + RH / 2 + 22 * k);
+  } else if (sc === "incrocio" || sc === "retromarcia") {
+    const RV = RH; roadH(cy - RH / 2, RH); roadV(cx - RV / 2, RV);
+    ctx.fillStyle = "#dfe3ea"; ctx.fillRect(cx - RV / 2, cy - RH / 2, RV, RH);
+    let hitter = front("B") && !front("A") ? "B" : front("A") && !front("B") ? "A" : has("A", 17) || has("B", 16) ? "A" : "B";
+    if (sc === "retromarcia") hitter = has("A", 14) ? "A" : "B";
+    const hit = other(hitter), side = r[hit].urto.some(z => ["S", "AS", "PS"].includes(z)) && !r[hit].urto.some(z => ["D", "AD", "PD"].includes(z)) ? "S" : "D";
+    const hy = cy + RH / 4, hx = cx + 6 * k; car(hx, hy, 0, hit); trail([[24 * k, hy], tip(hx, hy, 0)], hit);
+    if (sc === "retromarcia") { const ry = hy + CW / 2 + CL / 2 + 2 * k; car(hx + 10 * k, ry, -Math.PI / 2 + Math.PI, hitter, "retromarcia"); trail([[hx + 10 * k, H - 6 * k], [hx + 10 * k, ry + CL / 2 + 6 * k]], hitter); boom(hx + 10 * k, hy + CW / 2); }
+    else if (side === "D") { const vx = cx + RV / 4, vy = hy + CW / 2 + CL / 2 + 2 * k, turn = has(hitter, 13) ? -1 : has(hitter, 12) ? 1 : 0;
+      car(vx, vy, -Math.PI / 2, hitter); trail([[vx, H - 4 * k], tip(vx, vy, -Math.PI / 2)], hitter); boom(vx, hy + CW / 2); if (has(hitter, 17)) yieldSign(cx + RV / 2 + 22 * k, cy + RH / 2 + 18 * k); }
+    else { const vx = cx - RV / 4, vy = hy - CW / 2 - CL / 2 - 2 * k; car(vx, vy, Math.PI / 2, hitter); trail([[vx, 4 * k], tip(vx, vy, Math.PI / 2)], hitter); boom(vx, hy - CW / 2); if (has(hitter, 17)) yieldSign(cx - RV / 2 - 22 * k, cy - RH / 2 - 30 * k); }
+    if (has(hit, 17)) yieldSign(cx - RV / 2 - 24 * k, cy + RH / 2 + 18 * k);
+    [12, 13].forEach(n => ["A", "B"].forEach(w => { if (has(w, n)) text(`${w} ${n === 12 ? "girava a destra" : "girava a sinistra"}`, W - 16 * k, 22 * k + (w === "B" ? 16 * k : 0), "right", 12); }));
+    text(via, 16 * k, cy - RH / 2 - 10 * k);
+  } else if (sc === "rotatoria") {
+    const R = Math.min(H * 0.44, W * 0.2), rx = cx, ry = cy; ctx.fillStyle = "#dfe3ea"; roadV(rx - RH / 2.4, RH / 1.2, ry, H); ctx.beginPath(); ctx.arc(rx, ry, R, 0, 7); ctx.fill();
+    ctx.fillStyle = "#cfe5c6"; ctx.strokeStyle = "#8f98a8"; ctx.lineWidth = 2 * k; ctx.beginPath(); ctx.arc(rx, ry, R * 0.42, 0, 7); ctx.fill(); ctx.stroke(); ctx.beginPath(); ctx.arc(rx, ry, R, 0, 7); ctx.stroke();
+    const inn = has("A", 6) ? "A" : has("B", 6) ? "B" : "B", circ = other(inn), ra = Math.PI * 0.62, pr = R * 0.71;
+    const ra2 = Math.PI * 0.58, qx = rx + pr * Math.cos(ra2), qy = ry + pr * Math.sin(ra2); car(qx, qy, ra - Math.PI / 2, circ);
+    ctx.save(); ctx.strokeStyle = COL[circ]; ctx.lineWidth = 3.5 * k; ctx.setLineDash([10 * k, 8 * k]); ctx.beginPath(); ctx.arc(rx, ry, pr, ra + 1.4, ra + 0.42, true); ctx.stroke(); ctx.restore();
+    const ex = rx + RH / 5, ey = ry + R + CL * 0.1; car(ex, ey, -Math.PI / 2 + 0.35, inn); trail([[rx + RH / 5, H - 4 * k], tip(ex, ey, -Math.PI / 2 + 0.35)], inn); boom((qx + ex) / 2, (qy + ey) / 2);
+    text(via || "rotatoria", 16 * k, 22 * k);
+  } else if (sc === "parcheggio") {
+    const ly = cy + RH * 0.35; roadH(cy - 6 * k, RH * 0.9, false); ctx.strokeStyle = "#8f98a8"; ctx.lineWidth = 2 * k;
+    for (let x = 30 * k; x < W; x += 62 * k) { ctx.beginPath(); ctx.moveTo(x, 6 * k); ctx.lineTo(x, cy - 6 * k); ctx.stroke(); }
+    const rev = has("A", 4) || has("A", 14) || has("A", 3) || has("A", 5) ? "A" : "B", pas = other(rev), sx = cx + 31 * k;
+    car(sx, cy - 6 * k - CL * 0.08, -Math.PI / 2, rev, has(rev, 14) || has(rev, 4) ? "" : ""); trail([[sx, 14 * k], [sx, cy - 6 * k - CL * 0.08 - CL / 2 - 4 * k]], rev);
+    car(sx - CL * 0.95, ly, 0, pas); trail([[24 * k, ly], tip(sx - CL * 0.95, ly, 0)], pas); boom(sx - CW / 2 - 4 * k, cy + CL * 0.3);
+    text(has(rev, 3) ? `${rev} parcheggiava` : has(rev, 5) ? `${rev} entrava nel parcheggio` : `${rev} usciva dal parcheggio`, W - 16 * k, H - 14 * k, "right", 12); text(via || "parcheggio", 16 * k, H - 14 * k);
+  }
+  // legenda
+  ctx.font = `bold ${12 * k}px Helvetica, Arial, sans-serif`; ctx.textBaseline = "middle"; ctx.textAlign = "left"; let lx = W - 210 * k; const ly2 = 16 * k;
+  if (sc !== "incrocio") { [["A", COL.A], ["B", COL.B]].forEach(([w, c]) => { ctx.fillStyle = c; ctx.fillRect(lx, ly2 - 6 * k, 20 * k, 12 * k); ctx.fillStyle = "#3b4352"; ctx.fillText(`veicolo ${w}`, lx + 25 * k, ly2); lx += 85 * k; }); }
+  ctx.restore();
+}
+function sketchDataUrl(r, W = 1120, H = 368) {
+  const c = document.createElement("canvas"); c.width = W; c.height = H; const ctx = c.getContext("2d");
+  renderSketch(ctx, W, H, r); return c.toDataURL("image/png");
+}
 function autoSketch() {
   const p = S.sketchPad; if (!p) return; const { ctx, w, h } = p, r = S.r;
-  ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, w, h);
-  const road = (x, y, rw, rh) => { ctx.fillStyle = "#e4e7ec"; ctx.fillRect(x, y, rw, rh); };
-  const dash = (x1, y1, x2, y2) => { ctx.save(); ctx.setLineDash([12, 10]); ctx.strokeStyle = "#9aa3b2"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); ctx.restore(); };
-  const car = (x, y, ang, who) => { ctx.save(); ctx.translate(x, y); ctx.rotate(ang); const c = who === "A" ? "#1F5FD6" : "#E2B100";
-    ctx.fillStyle = c; ctx.beginPath(); ctx.roundRect(-26, -13, 52, 26, 7); ctx.fill(); ctx.fillStyle = "rgba(255,255,255,.55)"; ctx.fillRect(10, -9, 8, 18);
-    ctx.rotate(-ang); ctx.fillStyle = who === "A" ? "#fff" : "#1a1400"; ctx.font = "bold 14px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(who, 0, 1); ctx.restore(); };
-  const arrow = (x1, y1, x2, y2, c) => { ctx.strokeStyle = c; ctx.fillStyle = c; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); const a = Math.atan2(y2 - y1, x2 - x1); ctx.beginPath(); ctx.moveTo(x2, y2); ctx.lineTo(x2 - 12 * Math.cos(a - .45), y2 - 12 * Math.sin(a - .45)); ctx.lineTo(x2 - 12 * Math.cos(a + .45), y2 - 12 * Math.sin(a + .45)); ctx.fill(); };
-  const boom = (x, y) => { ctx.strokeStyle = "#D22F3F"; ctx.lineWidth = 2.5; for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4; ctx.beginPath(); ctx.moveTo(x + 6 * Math.cos(a), y + 6 * Math.sin(a)); ctx.lineTo(x + 14 * Math.cos(a), y + 14 * Math.sin(a)); ctx.stroke(); } };
-  const cy = h / 2, t = r.tipo.toLowerCase(), aHitsB = r.A.circ.includes(8);
-  if (t.includes("lateral") || t.includes("incrocio") || r.place === "incrocio") {
-    road(0, cy - 40, w, 80); road(w / 2 - 40, 0, 80, h); dash(0, cy, w / 2 - 40, cy); dash(w / 2 + 40, cy, w, cy); dash(w / 2, 0, w / 2, cy - 40); dash(w / 2, cy + 40, w / 2, h);
-    const aFromRight = r.A.circ.includes(16);
-    car(w / 2 - 70, cy + 20, 0, aFromRight ? "B" : "A"); arrow(w / 2 - 120, cy + 20, w / 2 - 100, cy + 20, aFromRight ? "#E2B100" : "#1F5FD6");
-    car(w / 2 + 20, cy - 10, Math.PI / 2, aFromRight ? "A" : "B"); boom(w / 2 - 40, cy + 18);
-  } else if (t.includes("frontale")) {
-    road(0, cy - 44, w, 88); dash(0, cy, w, cy); car(w / 2 - 34, cy - 14, 0, "A"); car(w / 2 + 34, cy + 2, Math.PI, "B"); boom(w / 2, cy - 6);
-    arrow(40, cy - 22, 90, cy - 22, "#1F5FD6"); arrow(w - 40, cy + 22, w - 90, cy + 22, "#E2B100");
-  } else if (t.includes("rotatori") || r.place === "rotatoria") {
-    ctx.fillStyle = "#e4e7ec"; ctx.beginPath(); ctx.arc(w / 2, cy, 105, 0, 7); ctx.fill(); ctx.fillStyle = "#cfe3c8"; ctx.beginPath(); ctx.arc(w / 2, cy, 50, 0, 7); ctx.fill();
-    car(w / 2 - 78, cy - 6, -Math.PI / 2, "A"); car(w / 2 - 60, cy + 52, -Math.PI / 4, "B"); boom(w / 2 - 74, cy + 24);
-  } else if (r.place === "parcheggio") {
-    road(0, cy - 10, w, 70); ctx.strokeStyle = "#9aa3b2"; ctx.lineWidth = 2; for (let x = 20; x < w; x += 60) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, cy - 10); ctx.stroke(); }
-    car(110, cy - 50, Math.PI / 2, r.fermo === "B" ? "B" : "A"); car(150, cy + 25, Math.PI, r.fermo === "B" ? "A" : "B"); boom(118, cy - 12);
-  } else {
-    road(0, cy - 44, w, 88); dash(0, cy, w, cy);
-    const front = aHitsB ? "B" : "A", back = aHitsB ? "A" : "B";
-    car(w / 2 + 34, cy + 22, 0, front); car(w / 2 - 34, cy + 22, 0, back); boom(w / 2, cy + 22); arrow(40, cy + 22, 100, cy + 22, back === "A" ? "#1F5FD6" : "#E2B100");
-  }
-  ctx.fillStyle = "#6b7383"; ctx.font = "11px monospace"; ctx.textAlign = "left"; ctx.fillText((r.luogo.via || "strada") + " · schizzo indicativo", 10, 16);
-  r.schizzo = p.canvas.toDataURL("image/jpeg", 0.85); saveDraft();
+  ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, w, h); renderSketch(ctx, w, h, r);
+  ctx.save(); ctx.globalCompositeOperation = "destination-over"; ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, w, h); ctx.restore();
+  r.schizzo = p.canvas.toDataURL("image/jpeg", 0.88); r.schizzoManual = false; saveDraft();
 }
 
 /* ---------- GPS ---------- */
@@ -1047,10 +1125,57 @@ async function scanQR(file) {
 }
 
 /* ---------- REC ---------- */
-let mediaRec = null, recog = null, recTimer = null, recStart = 0, chunks = [], recStream = null;
+let mediaRec = null, recog = null, recTimer = null, recStart = 0, chunks = [], recStream = null, recLive = "";
+const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+/* Trascrizione della registrazione direttamente sul telefono (Whisper, OpenAI, licenza MIT).
+   Il modello (~80 MB) si scarica una volta sola e resta in memoria; l'audio non lascia mai il telefono. */
+const ASR_MODEL = "Xenova/whisper-base";
+let asrPipe = null, asrLoading = null;
+async function getASR(onStep) {
+  if (asrPipe) return asrPipe;
+  if (!asrLoading) asrLoading = (async () => {
+    const T = await import(new URL("vendor/asr/transformers.min.js", location.href).href);
+    T.env.backends.onnx.wasm.wasmPaths = new URL("vendor/asr/", location.href).href;
+    T.env.backends.onnx.wasm.numThreads = 1;
+    if (window.CIDNOW_ASR_LOCAL) { T.env.localModelPath = window.CIDNOW_ASR_LOCAL; T.env.allowRemoteModels = false; T.env.allowLocalModels = true; }
+    const prog = {};
+    return T.pipeline("automatic-speech-recognition", ASR_MODEL, { dtype: "q8", device: "wasm", progress_callback: e => {
+      if (e.status === "progress" && e.total) { prog[e.file] = [e.loaded, e.total]; const v = Object.values(prog), l = v.reduce((a, b) => a + b[0], 0), t = v.reduce((a, b) => a + b[1], 0);
+        if (t > 3e6) onStep?.(`Scarico il riconoscimento vocale (solo la prima volta): ${Math.round(l / 1e6)} di ${Math.round(t / 1e6)} MB`); } } });
+  })();
+  try { asrPipe = await asrLoading; } finally { asrLoading = null; }
+  return asrPipe;
+}
+async function audioTo16k(blob) {
+  const buf = await blob.arrayBuffer(), AC = window.AudioContext || window.webkitAudioContext, ac = new AC();
+  const dec = await new Promise((ok, ko) => { const pr = ac.decodeAudioData(buf, ok, ko); if (pr && pr.then) pr.then(ok, ko); });
+  try { ac.close(); } catch {}
+  const OAC = window.OfflineAudioContext || window.webkitOfflineAudioContext, len = Math.max(1, Math.ceil(dec.duration * 16000));
+  const oc = new OAC(1, len, 16000), src = oc.createBufferSource(); src.buffer = dec; src.connect(oc.destination); src.start(0);
+  const out = await new Promise((ok, ko) => { const pr = oc.startRendering(); if (pr && pr.then) pr.then(ok, ko); else oc.oncomplete = e => ok(e.renderedBuffer); });
+  return out.getChannelData(0);
+}
+async function transcribeBlob(blob, onStep) {
+  const pipe = await getASR(onStep); onStep?.("Trascrivo la registrazione…");
+  const audio = await audioTo16k(blob);
+  const res = await pipe(audio, { language: "italian", task: "transcribe", chunk_length_s: 30, stride_length_s: 5 });
+  return (Array.isArray(res) ? res.map(x => x.text).join(" ") : res.text || "").replace(/\s+/g, " ").trim();
+}
+async function transcribeFor(who, blob, replace = false) {
+  S.asr = S.asr || {}; S.asr[who] = { busy: true, msg: "Preparo la trascrizione…" }; render();
+  const step = m => { S.asr[who].msg = m; const el = $("#asr-" + who); if (el) el.textContent = m; };
+  try {
+    const txt = await transcribeBlob(blob, step);
+    if (txt) { const P = S.r[who]; P.rec = replace || !P.rec ? txt : (P.rec.trim() + " " + txt).trim(); saveDraft(); toast("Trascrizione pronta: controllala"); }
+    else toast("Non ho sentito parole: riprova parlando più vicino al telefono", 4000);
+    S.asr[who] = { busy: false };
+  } catch (e) { console.error(e); S.asr[who] = { busy: false, err: navigator.onLine ? "Trascrizione non riuscita su questo telefono: scrivi o detta il testo con la tastiera." : "Per la prima trascrizione serve internet (si scarica il riconoscimento vocale, una volta sola). Riprova con la rete." }; }
+  render();
+}
 const PREVIEW_MIC = "Questa è l'anteprima dentro Claude, che per sicurezza blocca il microfono. Nell'app installata il REC registra e trascrive. Qui puoi dettare con il microfono della tastiera del telefono nel campo «Trascrizione», oppure allegare una registrazione.";
 const nativeSR = () => window.Capacitor?.isNativePlatform?.() && window.Capacitor.Plugins?.SpeechRecognition;
 function showTranscript(who) {
+  recLive = S.rec.final + S.rec.interim;
   const t = (S.rec.base + S.rec.final + S.rec.interim).replace(/\s+/g, " ").trim();
   S.r[who].rec = t; const ta = $("#" + who + "-rec"); if (ta) ta.value = t; saveDraft();
 }
@@ -1062,17 +1187,18 @@ async function toggleRec(who) {
   try { recStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } }); }
   catch (e) { recStream = null;
     if (!NSR) { S.recErr[who] = IS_PREVIEW ? PREVIEW_MIC : e?.name === "NotAllowedError" ? "Accesso al microfono negato: consentilo nelle impostazioni del telefono per " + APP.name + "." : "Microfono non disponibile su questo dispositivo."; render(); return; } }
-  S.rec = { who, base: S.r[who].rec ? S.r[who].rec.trim() + " " : "", final: "", interim: "" }; recStart = Date.now(); chunks = [];
+  S.rec = { who, base: S.r[who].rec ? S.r[who].rec.trim() + " " : "", final: "", interim: "" }; recStart = Date.now(); chunks = []; recLive = "";
   if (recStream && window.MediaRecorder) { try { mediaRec = new MediaRecorder(recStream); mediaRec.ondataavailable = e => e.data.size && chunks.push(e.data);
-      mediaRec.onstop = () => { recStream?.getTracks().forEach(t => t.stop()); if (chunks.length) { const blob = new Blob(chunks, { type: mediaRec.mimeType || "audio/webm" }); S.recUrl[who] = URL.createObjectURL(blob); S.r[who].recAudio = true; } render(); };
+      mediaRec.onstop = () => { recStream?.getTracks().forEach(t => t.stop()); if (chunks.length) { const blob = new Blob(chunks, { type: mediaRec.mimeType || "audio/mp4" }); S.recUrl[who] = URL.createObjectURL(blob); S.recBlob = S.recBlob || {}; S.recBlob[who] = blob; S.r[who].recAudio = true;
+          if (!recLive.trim()) transcribeFor(who, blob); } render(); };
       mediaRec.start(1000); } catch { mediaRec = null; } }
   if (NSR) {
     try { await NSR.requestPermissions(); await NSR.removeAllListeners?.();
       NSR.addListener("partialResults", d => { if (S.rec.who === who) { S.rec.interim = d.matches?.[0] || ""; showTranscript(who); } });
       await NSR.start({ language: "it-IT", partialResults: true, popup: false });
     } catch { S.recErr[who] = "Trascrizione non disponibile: l'audio viene comunque registrato."; }
-  } else if (SR) startWebSR(who, SR);
-  else S.recErr[who] = "Trascrizione automatica non supportata da questo browser: l'audio viene registrato, il testo puoi dettarlo con la tastiera.";
+  } else if (SR && !IS_IOS) startWebSR(who, SR);
+  /* altrimenti: trascrizione dopo lo STOP, sul telefono */
   render();
   recTimer = setInterval(() => { const el = $("#timer-" + who); if (el) el.textContent = fmtDur((Date.now() - recStart) / 1000); }, 500);
 }
@@ -1093,7 +1219,7 @@ async function stopRec() {
   const NSR = nativeSR(); if (NSR) { try { await NSR.stop(); await NSR.removeAllListeners?.(); } catch {} }
   try { if (mediaRec?.state === "recording") mediaRec.stop(); else recStream?.getTracks().forEach(t => t.stop()); } catch {}
   S.rec.final += S.rec.interim ? S.rec.interim.trim() + " " : ""; S.rec.interim = ""; showTranscript(who);
-  saveDraft(); render(); toast(S.r[who].rec ? "Trascrizione pronta" : "Registrazione salvata");
+  saveDraft(); render(); if (recLive.trim()) toast("Trascrizione pronta");
 }
 
 /* ---------- Completamento + PDF ---------- */
@@ -1156,7 +1282,7 @@ function buildPDF(r, onlyAttach = false) {
   doc.setFont("helvetica", "normal"); doc.text("numero di caselle segnate", cx + cw / 2, cy + 3, { align: "center" });
   // 13 grafico, 14 osservazioni
   y = 201; box(8, y, 120, 64, 13, "Grafico dell'incidente al momento dell'urto");
-  if (r.schizzo) { try { const pr = doc.getImageProperties(r.schizzo), s = Math.min(116 / pr.width, 57 / pr.height), iw = pr.width * s, ih = pr.height * s; doc.addImage(r.schizzo, "JPEG", 8 + (120 - iw) / 2, y + 5 + (58 - ih) / 2, iw, ih); } catch {} }
+  { const sk = r.schizzoManual && r.schizzo ? r.schizzo : sketchDataUrl(r); try { const pr = doc.getImageProperties(sk), s = Math.min(116 / pr.width, 57 / pr.height), iw = pr.width * s, ih = pr.height * s; doc.addImage(sk, sk.startsWith("data:image/png") ? "PNG" : "JPEG", 8 + (120 - iw) / 2, y + 5 + (58 - ih) / 2, iw, ih); } catch {} }
   box(129, y, 73, 31.5, 14, "Osservazioni A", BLUE); para(131, y + 7, 69, y + 31, r.A.osserv, 6.4);
   box(129, y + 32.5, 73, 31.5, 14, "Osservazioni B", YEL); para(131, y + 39.5, 69, y + 63.5, r.B.osserv, 6.4);
   // 15 firme
@@ -1267,7 +1393,7 @@ async function buildOfficialPDF(r) {
   });
   // 13 grafico, 15 firme
   const img = async (u, x, y, w, h) => { if (!u) return; try { const im = u.startsWith("data:image/png") ? await pdf.embedPng(u) : await pdf.embedJpg(u); const s = Math.min(w / im.width, h / im.height); pg.drawImage(im, { x: x + (w - im.width * s) / 2, y: H - y - h + (h - im.height * s) / 2, width: im.width * s, height: im.height * s }); } catch {} };
-  await img(r.schizzo, 156, 676, 280, 92);
+  await img(r.schizzoManual && r.schizzo ? r.schizzo : sketchDataUrl(r), 156, 676, 280, 92);
   await img(r.firmaA, 239, 785, 57, 27); await img(r.firmaB, 297, 785, 56, 27);
   if (r.modifiedAfterSign) T(`Modificato dopo la firma il ${fmtDateTime(r.modifiedAt)}`, 228, 838, 140, 5.5, bold);
   // pagina 3: altre informazioni (targhe)
@@ -1398,6 +1524,7 @@ document.addEventListener("click", e => {
     case "pen": S.pen = el.dataset.c; S.sketchPad?.setColor(S.pen); $$('[data-act="pen"]').forEach(b => b.classList.toggle("on", b === el)); break;
     case "fillExampleB": Object.assign(r.B, EXAMPLE_B); r.B._cfAuto = true; r.B.cf = cfCompute(r.B) || ""; r.autoFields.B = Object.fromEntries(Object.keys(EXAMPLE_B).map(k => [k, 1])); saveDraft(); render(); toast("Dati di esempio inseriti per B"); break;
     case "rec": toggleRec(el.dataset.who); break;
+    case "retranscribe": if (S.recBlob?.[el.dataset.who]) transcribeFor(el.dataset.who, S.recBlob[el.dataset.who], true); break;
     case "clearSign": r["firma" + el.dataset.who] = ""; saveDraft(); render(); break;
     case "complete": complete(); break;
     case "pdf": downloadPDF(); break;
@@ -1418,7 +1545,7 @@ document.addEventListener("change", async e => {
   else if (a === "scanQR") scanQR(files[0]);
   else if (a === "scanB") scanDocs("B", files);
   else if (a === "scanP") scanDocs("P", files);
-  else if (a === "audio") { const who = el.dataset.who; S.recUrl = S.recUrl || {}; S.recUrl[who] = URL.createObjectURL(files[0]); S.r[who].recAudio = true; render(); toast("Registrazione allegata: scrivi o detta il testo"); }
+  else if (a === "audio") { const who = el.dataset.who; S.recUrl = S.recUrl || {}; S.recUrl[who] = URL.createObjectURL(files[0]); S.recBlob = S.recBlob || {}; S.recBlob[who] = files[0]; S.r[who].recAudio = true; transcribeFor(who, files[0]); }
 });
 
 render();
