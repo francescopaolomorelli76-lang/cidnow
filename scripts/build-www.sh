@@ -18,7 +18,7 @@ sed -e 's#https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js#ve
   printf '<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">'
   printf '<meta name="theme-color" content="#0A0E17"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">'
   printf '<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="CIDnow">'
-  printf '<link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icon.svg"><link rel="apple-touch-icon" href="apple-touch-icon.png">'
+  printf '<link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icon.svg"><link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=%s">' "$VER"
   printf '<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font-size:14px;font-family:system-ui,sans-serif}img{max-width:100%%}[hidden]{display:none!important}</style></head><body>\n'
   cat /tmp/cidnow-body.html
   printf '\n</body></html>\n'
