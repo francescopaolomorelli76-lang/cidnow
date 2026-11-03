@@ -227,6 +227,7 @@ details.sec .in{padding:0 14px 14px}
 <div id="toast" class="toast" hidden></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <script>
@@ -234,7 +235,7 @@ details.sec .in{padding:0 14px 14px}
 /* ============================================================
    CIDnow — Constatazione Amichevole di Incidente (CAI / CID)
    ============================================================ */
-const APP = { name: "CIDnow", version: "0.3.1" };
+const APP = { name: "CIDnow", version: "0.4.0" };
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -260,9 +261,9 @@ const F_DRIVER = [
   { k: "sesso", l: "Sesso", sel: [["", "—"], ["M", "Maschio"], ["F", "Femmina"]], ach: "sex" }, { k: "nascita", l: "Data di nascita", t: "date", ach: "bday" },
   { k: "luogoNascita", l: "Comune o Stato estero di nascita", full: 1, ac: "nascita", tc: 1 },
   { k: "cf", l: "Codice fiscale", u: 1, full: 1, cf: 1 },
-  { k: "indirizzo", l: "Indirizzo di residenza", full: 1, tc: 1, ach: "street-address" },
-  { k: "cap", l: "CAP", im: "numeric", ac: "cap", ach: "postal-code", max: 5 }, { k: "citta", l: "Comune", ac: "comune", tc: 1, ach: "address-level2" },
-  { k: "prov", l: "Provincia", u: 1, max: 2, ach: "address-level1" }, { k: "nazione", l: "Stato", ach: "country-name" },
+  { k: "citta", l: "Comune di residenza", ac: "comune", tc: 1, ach: "address-level2" }, { k: "prov", l: "Provincia", u: 1, max: 2, ach: "address-level1" },
+  { k: "indirizzo", l: "Via / piazza e numero civico", full: 1, tc: 1, ac: "via", ach: "street-address" },
+  { k: "cap", l: "CAP", im: "numeric", ac: "cap", ach: "postal-code", max: 5 }, { k: "nazione", l: "Stato", ach: "country-name" },
   { k: "tel", l: "Telefono", t: "tel", ach: "tel" }, { k: "email", l: "Email", t: "email", ach: "email" },
   { k: "patenteN", l: "Patente n.", u: 1 }, { k: "patenteCat", l: "Categoria", u: 1, ac: "patcat" },
   { k: "patenteScad", l: "Patente valida fino al", t: "date", full: 1 }
@@ -347,7 +348,11 @@ function newReport() {
   };
 }
 let saveT;
-function saveDraft() { clearTimeout(saveT); saveT = setTimeout(async () => { if (S.r && S.r.status === "bozza") { if (!(await persist("cidnow.draft", S.r))) store.set("cidnow.draft", { ...S.r, photos: [] }); } }, 400); }
+function markEdited() { const r = S.r; if (!r || r.status !== "completo") return; r.modifiedAfterSign = true; r.modifiedAt = new Date().toISOString(); }
+let saveRepT;
+function saveDraft() {
+  if (S.r?.status === "completo") { markEdited(); clearTimeout(saveRepT); saveRepT = setTimeout(() => persist("cidnow.reports", S.reports), 500); return; }
+  clearTimeout(saveT); saveT = setTimeout(async () => { if (S.r && S.r.status === "bozza") { if (!(await persist("cidnow.draft", S.r))) store.set("cidnow.draft", { ...S.r, photos: [] }); } }, 400); }
 
 /* ---------- Capacità della piattaforma (anteprima) ---------- */
 (async () => {
@@ -429,7 +434,10 @@ function acItems(kind, q) {
 }
 function acHide(el) { el.parentElement?.querySelector(".acl")?.remove(); }
 function acShow(el) {
+  if (el.dataset.ac === "via") { viaSearch(el); return; }
   acHide(el); const items = acItems(el.dataset.ac, el.value.trim());
+  if (el.dataset.ac === "comune") { const ex = items.filter(i => norm(i.v) === norm(el.value)); if (ex.length === 1) { const [p] = el.dataset.bind.split("."), K = addrKeys(p), o = baseOf(p), c = ex[0].c;
+    if (o[K.prov] !== c.p) setField(p, K.prov, c.p); const sc = singleCap(c.c); if (sc && o[K.cap] !== sc) setField(p, K.cap, sc); else if (!sc && o[K.cap] && !hasCap(c.c, o[K.cap])) setField(p, K.cap, "", false); } }
   if (!items.length || (items.length === 1 && items[0].v === el.value && el.dataset.ac !== "cap")) return;
   const ul = document.createElement("ul"); ul.className = "acl"; ul.setAttribute("role", "listbox");
   items.forEach(it => { const li = document.createElement("li"); li.setAttribute("role", "option"); li.innerHTML = `<span>${esc(it.v)}</span><small>${esc(it.sub)}</small>`;
@@ -601,10 +609,10 @@ function viewProfile() {
   return `<div class="stack"><div><div class="eyebrow">Veicolo A</div><h1>Il tuo profilo</h1><p class="muted">Restano solo su questo telefono. Servono per compilare in automatico la tua metà del modulo.</p></div>
   ${CONTACTS_OK ? `<button class="btn" data-act="contact" data-p="P">Prendi i dati dalla rubrica del telefono</button>` : ""}
   <div class="banner info"><span class="ic">i</span><div style="font-size:13px">Tocca un campo: il telefono propone i tuoi dati salvati (nome, residenza, telefono). Scrivendo il comune o il CAP, provincia e CAP si completano da soli. Il codice fiscale si calcola da cognome, nome, sesso, data e luogo di nascita.</div></div>
-  <section class="card"><div class="row" style="justify-content:space-between"><b>Compila dalle foto</b>${aiReady() ? `<span class="tag ok">AI</span>` : `<span class="tag ghost">manuale</span>`}</div>
+  <section class="card"><div class="row" style="justify-content:space-between"><b>Compila dalle foto</b>${aiReady() ? `<span class="tag ok">AI</span>` : `<span class="tag ok">SUL TELEFONO</span>`}</div>
     <p class="muted" style="margin:0;font-size:13px">Fotografa patente, libretto e certificato assicurativo: i campi vengono letti e inseriti per te.</p>
-    <label class="btn ${aiReady() ? "primary" : ""}" style="position:relative">${S.ai.busy ? `<span class="spin"></span> Lettura in corso…` : "Scatta o scegli le foto dei documenti"}<input type="file" accept="image/*" capture="environment" multiple data-act-file="scanP" style="position:absolute;inset:0;opacity:0" ${S.ai.busy ? "disabled" : ""}></label>
-    ${!aiReady() ? `<span class="muted" style="font-size:12px">${consentOn("ai") ? "La lettura automatica dei documenti richiede l'analisi AI." : "Analisi automatica delle immagini senza consenso."} Puoi sempre inserire i dati a mano qui sotto.</span>` : ""}
+    <label class="btn primary" style="position:relative">${S.ai.busy ? `<span class="spin"></span> ${esc(S.ai.msg || "Lettura in corso…")}` : "Scatta o scegli le foto dei documenti"}<input type="file" accept="image/*" capture="environment" multiple data-act-file="scanP" style="position:absolute;inset:0;opacity:0" ${S.ai.busy ? "disabled" : ""}></label>
+    <span class="muted" style="font-size:12px">${aiReady() ? "Lettura con analisi AI." : "Lettura direttamente sul telefono, senza inviare le foto."} Fotografa il documento dritto, vicino, con buona luce e senza riflessi. Controlla sempre i campi compilati (in verde).</span>
   </section>
   <details class="sec" open><summary>Conducente e patente <span class="muted">${filled(d, F_DRIVER)}</span></summary><div class="in">${fieldsHTML("P", F_DRIVER, d, d._auto)}</div></details>
   <details class="sec" open><summary>Veicolo <span class="muted">${filled(d, F_VEH)}</span></summary><div class="in">${fieldsHTML("P", F_VEH, d, d._auto)}</div></details>
@@ -616,15 +624,14 @@ const filled = (o, defs) => `${defs.filter(f => o?.[f.k]).length}/${defs.length}
 /* ---------- Wizard ---------- */
 function viewWizard() {
   const r = S.r, s = S.step;
-  const head = `<div class="stack" style="gap:6px"><div class="steps">${STEPS.map((_, i) => `<span class="${i === s ? "on" : i < s ? "done" : ""}"></span>`).join("")}</div>
-    <div class="stepname"><span class="eyebrow">Passo ${s + 1} di ${STEPS.length}</span><span class="eyebrow">${esc(r.id)}</span></div></div>`;
+  const head = `<div class="stack" style="gap:6px"><div class="steps">${STEPS.map((n, i) => `<span class="${i === s ? "on" : i < s || r.status === "completo" ? "done" : ""}" data-act="goto" data-s="${i}" title="${n}" role="button" aria-label="Vai a ${n}" style="cursor:pointer;height:6px"></span>`).join("")}</div>
+    <div class="stepname"><span class="eyebrow">Passo ${s + 1} di ${STEPS.length} · ${STEPS[s]}${r.status === "completo" ? " · firmato" : ""}</span><span class="eyebrow">${esc(r.id)}</span></div></div>`;
   const fn = [stepLuogo, stepFoto, stepB, stepDinamica, stepRec, stepFirme, stepCID][s];
   const html = head + `<div class="stack" style="margin-top:14px">${fn(r)}</div>`;
   let actions;
   if (s === 6) actions = `<button class="btn back" data-act="prev">Indietro</button><button class="btn primary" data-act="pdf">Scarica CID (PDF)</button>`;
-  else if (s === 5) actions = `<button class="btn back" data-act="prev">Indietro</button><button class="btn primary" data-act="complete" ${canComplete(r) ? "" : "disabled"}>Completa il CID</button>`;
+  else if (s === 5) actions = `<button class="btn back" data-act="prev">Indietro</button><button class="btn primary" data-act="complete" ${canComplete(r) ? "" : "disabled"}>${r.status === "completo" ? "Salva le modifiche" : "Completa il CID"}</button>`;
   else actions = `${s > 0 ? `<button class="btn back" data-act="prev">Indietro</button>` : ""}<button class="btn primary" data-act="next">Avanti · ${STEPS[s + 1]}</button>`;
-  if (r.status === "completo" && s < 6) actions = `<button class="btn primary" data-act="goto" data-s="6">Torna al CID firmato</button>`;
   return { html, actions };
 }
 
@@ -644,8 +651,8 @@ function stepLuogo(r) {
     <label class="fld" for="R-ora"><span>Ora</span><input id="R-ora" type="time" data-bind="R.ora" value="${esc(r.ora)}"></label></div></section>
   <section class="card"><div class="row" style="justify-content:space-between"><h3>2 · Località</h3>${L.fonte === "gps" ? `<span class="tag ok">DA GPS</span>` : `<span class="tag ghost">MANUALE</span>`}</div>
     <div class="grid2">
-      ${[["via", "Via / piazza", 1], ["civico", "Civico / km"], ["cap", "CAP"], ["comune", "Comune"], ["prov", "Provincia (sigla)"], ["paese", "Stato"]].map(([k, l, full]) =>
-        `<label class="fld ${full ? "full" : ""}" for="L-${k}"><span>${l}</span><input id="L-${k}" data-bind="L.${k}" value="${esc(L[k])}" class="${L.fonte === "gps" && L[k] ? "auto" : ""}" autocomplete="off" ${k === "prov" ? 'data-upper="1" maxlength="2"' : ""} ${k === "comune" ? 'data-ac="comune" data-tc="1"' : ""} ${k === "cap" ? 'data-ac="cap" inputmode="numeric" maxlength="5"' : ""} ${k === "via" ? 'data-tc="1"' : ""}></label>`).join("")}
+      ${[["comune", "Comune"], ["prov", "Provincia (sigla)"], ["via", "Via / piazza", 1], ["civico", "Civico / km"], ["cap", "CAP"], ["paese", "Stato"]].map(([k, l, full]) =>
+        `<label class="fld ${full ? "full" : ""}" for="L-${k}"><span>${l}</span><input id="L-${k}" data-bind="L.${k}" value="${esc(L[k])}" class="${L.fonte === "gps" && L[k] ? "auto" : ""}" autocomplete="off" ${k === "prov" ? 'data-upper="1" maxlength="2"' : ""} ${k === "comune" ? 'data-ac="comune" data-tc="1"' : ""} ${k === "cap" ? 'data-ac="cap" inputmode="numeric" maxlength="5"' : ""} ${k === "via" ? 'data-tc="1" data-ac="via"' : ""}></label>`).join("")}
     </div>
     <div><span class="eyebrow">Tipo di luogo</span><div class="seg" style="margin-top:6px">${Object.entries(PLACES).map(([k, l]) => `<button data-act="place" data-v="${k}" class="${r.place === k ? "on" : ""}">${l}</button>`).join("")}</div></div>
   </section>
@@ -693,7 +700,7 @@ function aiCard(r) {
       <div class="muted" style="font-size:13px">Circostanze proposte · A: ${r.suggest.A.length ? r.suggest.A.join(", ") : "nessuna"} · B: ${r.suggest.B.length ? r.suggest.B.join(", ") : "nessuna"}. Le verifichi al passo Dinamica.</div>
       <div class="muted" style="font-size:12px">Metodo: ${esc(r.metodo)}</div></div>` : "";
   return `${res}<div class="stack" style="gap:8px">
-    <button class="btn ${can ? "primary" : ""} block" data-act="analyze" ${S.ai.busy ? "disabled" : ""}>${S.ai.busy ? `<span class="spin"></span> Analisi delle foto in corso…` : can ? "Analizza le foto con AI" : "Calcola la dinamica dalle zone d'urto"}</button>
+    <button class="btn ${can ? "primary" : ""} block" data-act="analyze" ${S.ai.busy ? "disabled" : ""}>${S.ai.busy ? `<span class="spin"></span> ${esc(S.ai.msg || "Analisi delle foto in corso…")}` : can ? "Analizza le foto con AI" : "Calcola la dinamica e leggi targa e documenti"}</button>
     ${!aiReady() ? `<span class="muted" style="font-size:12px">Analisi AI delle immagini non attiva: la dinamica viene stimata dalle zone d'urto, dal tipo di luogo e dai veicoli fermi.</span>` : !r.photos.length ? `<span class="muted" style="font-size:12px">Scatta almeno una foto per l'analisi AI. Senza foto la dinamica viene stimata dalle zone d'urto.</span>` : ""}
   </div>`;
 }
@@ -707,8 +714,8 @@ function stepB(r) {
     <span class="muted" style="font-size:12px">Nell'app installata i telefoni si scambiano i dati anche avvicinandoli (Bluetooth / NFC). Il QR funziona sempre, anche tra iPhone e Android.</span></section>
   <section class="card">${checkHTML("B", "informato", "Ho informato il conducente B che i suoi dati servono solo a compilare questo CID (art. 14 GDPR)", B)}</section>
   <section class="card"><div class="row" style="justify-content:space-between"><b>B non ha l'app</b>${aiReady() ? `<span class="tag ok">AI</span>` : ""}</div>
-    ${consentOn("camera") ? `<label class="btn" style="position:relative">${S.ai.busy ? `<span class="spin"></span> Lettura documenti…` : "Fotografa patente, libretto e assicurazione di B"}<input type="file" accept="image/*" capture="environment" multiple data-act-file="scanB" style="position:absolute;inset:0;opacity:0" ${S.ai.busy ? "disabled" : ""}></label>` : ""}
-    ${!aiReady() ? `<span class="muted" style="font-size:12px">Senza analisi AI compila i campi a mano qui sotto: comune, CAP e codice fiscale si completano da soli.</span>` : ""}</section>
+    ${consentOn("camera") ? `<label class="btn" style="position:relative">${S.ai.busy ? `<span class="spin"></span> ${esc(S.ai.msg || "Lettura documenti…")}` : "Fotografa patente, libretto e assicurazione di B"}<input type="file" accept="image/*" capture="environment" multiple data-act-file="scanB" style="position:absolute;inset:0;opacity:0" ${S.ai.busy ? "disabled" : ""}></label>` : ""}
+    <span class="muted" style="font-size:12px">Oppure compila a mano: comune, via, CAP, provincia e codice fiscale si completano da soli.</span></section>
   <details class="sec" open><summary><span><span class="tag b">B</span> Conducente</span><span class="muted">${filled(B, F_DRIVER)}</span></summary><div class="in">${fieldsHTML("B", F_DRIVER, B, r.autoFields.B)}</div></details>
   <details class="sec" open><summary><span><span class="tag b">B</span> Veicolo</span><span class="muted">${filled(B, F_VEH)}</span></summary><div class="in">${fieldsHTML("B", F_VEH, B, r.autoFields.B)}</div></details>
   <details class="sec" open><summary><span><span class="tag b">B</span> Assicurazione</span><span class="muted">${filled(B, F_INS)}</span></summary><div class="in">${fieldsHTML("B", F_INS, B, r.autoFields.B)}${checkHTML("B", "kasko", "La polizza copre i danni propri", B)}</div></details>
@@ -764,9 +771,14 @@ function missing(r) {
   return m;
 }
 const canComplete = r => r.firmaA && r.firmaB && r.veritieri;
+function editedBanner(r) {
+  if (r.status !== "completo") return "";
+  return r.modifiedAfterSign ? `<div class="banner warn"><span class="ic">!</span><div><b>Modificato dopo la firma</b> (${esc(fmtDateTime(r.modifiedAt))}). Il modulo dice che non va modificato dopo la firma: per renderlo valido cancellate le firme e firmate di nuovo entrambi, poi «Salva le modifiche». Altrimenti nel PDF resta l'indicazione della modifica.</div></div>`
+    : `<div class="banner info"><span class="ic">i</span><div>CID firmato il ${esc(fmtDateTime(r.signedAt))}. Puoi andare avanti e indietro tra i passi e correggere i campi.</div></div>`;
+}
 function stepFirme(r) {
   const m = missing(r);
-  return `<div><h1>Firme</h1><p class="muted" style="margin:6px 0 0">Casella 15. Firmate entrambi con il dito, uno alla volta, su questo telefono.</p></div>
+  return `<div><h1>Firme</h1><p class="muted" style="margin:6px 0 0">Casella 15. Firmate entrambi con il dito, uno alla volta, su questo telefono.</p></div>${editedBanner(r)}
   ${m.length ? `<div class="banner warn"><span class="ic">!</span><div><b>Mancano ${m.length} dati.</b> Puoi firmare lo stesso, ma l'assicurazione potrebbe chiederli: ${esc(m.slice(0, 6).join(" · "))}${m.length > 6 ? " …" : ""}</div></div>` : `<div class="banner ok"><span class="ic">✓</span><div>Tutti i dati essenziali sono compilati.</div></div>`}
   ${["A", "B"].map(w => `<section class="card ${w.toLowerCase()}"><div class="row" style="justify-content:space-between"><b>Firma conducente ${w} · ${esc([r[w].nome, r[w].cognome].filter(Boolean).join(" ") || "—")}</b><span class="tag ${w.toLowerCase()}">${w}</span></div>
     <div class="pad sign"><canvas id="sign${w}"></canvas><span class="line"></span><span class="hint">${r["firma" + w] ? "firmato" : "firma qui"}</span></div>
@@ -787,8 +799,10 @@ function stepCID(r) {
     <div class="muted">${esc([r.luogo.via, r.luogo.civico, r.luogo.cap, r.luogo.comune, r.luogo.prov && "(" + r.luogo.prov + ")"].filter(Boolean).join(" ") || "Luogo non indicato")}</div>
     <div class="cidprev">${col("A")}${col("B")}</div>
     ${r.schizzo ? `<img src="${r.schizzo}" alt="Grafico dell'incidente" style="border-radius:12px;border:1px solid var(--line)">` : ""}
-    <div class="muted" style="font-size:13px">${r.photos.length} foto allegate · ${[r.A.rec && "dichiarazione A", r.B.rec && "dichiarazione B"].filter(Boolean).join(" · ") || "nessuna dichiarazione REC"}</div></section>
-  <div class="grid2"><button class="btn" data-act="share">Condividi</button><button class="btn" data-act="home">Fine</button></div>
+    <div class="muted" style="font-size:13px">PDF: modulo ufficiale CAI compilato + ${r.photos.length} foto allegate · ${[r.A.rec && "dichiarazione A", r.B.rec && "dichiarazione B"].filter(Boolean).join(" · ") || "nessuna dichiarazione REC"}</div></section>
+  ${editedBanner(r)}
+  <div class="grid2"><button class="btn" data-act="goto" data-s="0">Modifica i dati</button><button class="btn" data-act="share">Condividi</button></div>
+  <button class="btn block" data-act="home">Fine</button>
   <p class="muted" style="font-size:12px;margin:0">Invia il PDF alla tua compagnia entro 3 giorni dal sinistro. Il modulo digitale riproduce i contenuti della constatazione amichevole; verifica con la tua compagnia le modalità di invio accettate.</p>`;
 }
 
@@ -797,7 +811,7 @@ function afterRender() {
   if (S.view !== "wizard") return;
   const r = S.r;
   if (S.step === 3) { const c = $("#sketch"); if (c) S.sketchPad = drawPad(c, { color: S.pen || "#222222", width: 3, initial: r.schizzo, onChange: u => { r.schizzo = u; saveDraft(); }, jpeg: true }); }
-  if (S.step === 5) ["A", "B"].forEach(w => { const c = $("#sign" + w); if (c) drawPad(c, { color: "#0b1b4a", width: 2.6, initial: r["firma" + w], onChange: u => { r["firma" + w] = u; saveDraft(); refreshBar(); } }); });
+  if (S.step === 5) ["A", "B"].forEach(w => { const c = $("#sign" + w); if (c) drawPad(c, { color: "#0b1b4a", width: 2.6, initial: r["firma" + w], onChange: u => { r["firma" + w] = u; if (r.status === "completo") r["resign" + w] = !!u; saveDraft(); refreshBar(); } }); });
 }
 function actionsFor() {
   if (S.view === "privacy") { const ok = S.cdraft?.terms && S.cdraft?.privacy; return `<button class="btn" data-act="consentSave" ${ok ? "" : "disabled"}>Conferma scelte</button><button class="btn primary" data-act="consentAll">Accetta tutto</button>`; }
@@ -896,7 +910,7 @@ function readImage(file, max = 1280, q = 0.72) {
   return new Promise((ok, ko) => { const url = URL.createObjectURL(file), im = new Image();
     im.onload = () => { const s = Math.min(1, max / Math.max(im.width, im.height)), c = document.createElement("canvas"); c.width = Math.round(im.width * s); c.height = Math.round(im.height * s);
       c.getContext("2d").drawImage(im, 0, 0, c.width, c.height); URL.revokeObjectURL(url); ok({ src: c.toDataURL("image/jpeg", q), w: c.width, h: c.height, canvas: c }); };
-    im.onerror = () => { URL.revokeObjectURL(url); ko(new Error("Immagine non leggibile")); }; im.src = url; });
+    im.onerror = () => { URL.revokeObjectURL(url); ko(new Error(/hei[cf]/i.test(file.type + file.name) ? "Foto in formato HEIC non leggibile da questo browser: aprila con Safari o esportala in JPG" : "Immagine non leggibile")); }; im.src = url; });
 }
 function dataUrlToBlob(u) { const [h, b] = u.split(","), mime = h.match(/:(.*?);/)[1], bin = atob(b), arr = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i); return new Blob([arr], { type: mime }); }
 
@@ -945,7 +959,11 @@ const aiErr = e => ({ not_granted: "Analisi AI non autorizzata: continua a mano.
 
 async function analyzePhotos() {
   const r = S.r, base = inferBase(r);
-  if (!aiReady() || !r.photos.length) { applyInference(r, base, "zone d'urto, tipo di luogo, veicoli fermi"); render(); toast(base.tipo === "Da determinare" ? "Segna le zone d'urto sul disegno" : "Dinamica stimata: " + base.tipo); return; }
+  if (!aiReady() || !r.photos.length) {
+    applyInference(r, base, "zone d'urto, tipo di luogo, veicoli fermi");
+    const docs = r.photos.filter(p => p.slot === "targaB" || p.slot === "docB");
+    if (docs.length) { S.ai.busy = true; render(); try { const n = await ocrMerge("B", docs.map(p => dataUrlToBlob(p.src))); toast(`Dinamica: ${base.tipo} · ${n} dati di B letti dalle foto`, 4000); } catch { toast("Dinamica stimata: " + base.tipo); } S.ai.busy = false; saveDraft(); render(); return; }
+    render(); toast(base.tipo === "Da determinare" ? "Segna le zone d'urto sul disegno" : "Dinamica stimata: " + base.tipo); return; }
   const pics = r.photos.slice(0, CAP.maxImages);
   const labels = pics.map((p, i) => `${i + 1}) ${SLOTS.find(s => s.k === p.slot)?.l}`).join("\n");
   const prompt = `Sei un perito assicurativo italiano. Analizza le foto di un incidente stradale per compilare la Constatazione Amichevole di Incidente (CAI/CID).
@@ -981,18 +999,27 @@ function mergeParty(w, src) {
   const cf = cfCompute(P); if (cf && !P.cf) { P.cf = cf; P._cfAuto = true; }
   return n;
 }
+async function ocrMerge(w, blobs) {
+  const txt = await ocrText(blobs, m => { S.ai.msg = m; render(); });
+  const o = parseDocs(txt); return mergeParty(w, o);
+}
 async function scanDocs(w, files) {
-  if (!aiReady()) { toast("Lettura automatica non disponibile: compila a mano"); return; }
-  S.ai.busy = true; render();
-  try {
-    const imgs = []; for (const f of [...files].slice(0, CAP.maxImages)) imgs.push(dataUrlToBlob((await readImage(f, 1600, 0.8)).src));
-    const prompt = `Leggi questi documenti italiani (patente di guida, carta di circolazione/libretto, certificato o contrassegno assicurativo, carta verde) e trascrivi i campi.
+  S.ai.busy = true; S.ai.msg = "Lettura in corso…"; render();
+  let imgs = [];
+  try { for (const f of [...files].slice(0, 5)) imgs.push(dataUrlToBlob((await readImage(f, 2000, 0.9)).src)); }
+  catch (e) { S.ai.busy = false; render(); toast(e.message || "Foto non leggibile", 4500); return; }
+  let n = 0, done = false;
+  if (aiReady()) {
+    try {
+      const prompt = `Leggi questi documenti italiani (patente di guida, carta di circolazione/libretto, certificato o contrassegno assicurativo, carta verde) e trascrivi i campi.
 Usa null per ciò che non è leggibile. Non inventare. Date in formato AAAA-MM-GG. Targa senza spazi, maiuscola.
 Rispondi con SOLO un oggetto JSON con queste chiavi: ${AI_FIELDS_DOC}.`;
-    const j = await aiCall(prompt, imgs);
-    const n = mergeParty(w, j || {}); toast(n ? `${n} campi compilati dalle foto` : "Nessun campo leggibile: riprova con più luce");
-  } catch (e) { toast(aiErr(e)); }
-  S.ai.busy = false; if (w !== "P") saveDraft(); render();
+      n = mergeParty(w, (await aiCall(prompt, imgs.slice(0, CAP.maxImages))) || {}); done = true;
+    } catch (e) { /* si passa alla lettura sul telefono */ }
+  }
+  if (!done) { try { n = await ocrMerge(w, imgs); done = true; } catch (e) { console.error(e); } }
+  S.ai.busy = false; S.ai.msg = ""; if (w !== "P") saveDraft(); render(); if (w === "P") updateCF("P");
+  toast(!done ? "Lettura non disponibile: compila a mano" : n ? `${n} campi compilati dal documento: controllali` : "Non riesco a leggere il documento: fotografalo dritto, vicino, con più luce", 4500);
 }
 
 /* ---------- QR: scambio dati tra telefoni ---------- */
@@ -1073,14 +1100,17 @@ async function stopRec() {
 async function sha256(s) { try { const b = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s)); return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, "0")).join(""); } catch { let h = 0; for (const c of s) h = (h * 31 + c.charCodeAt(0)) | 0; return (h >>> 0).toString(16).padStart(16, "0"); } }
 async function complete() {
   const r = S.r; if (!canComplete(r)) return;
-  r.signedAt = new Date().toISOString(); r.status = "completo";
+  const update = r.status === "completo";
+  if (!update || (r.resignA && r.resignB)) { r.signedAt = new Date().toISOString(); r.modifiedAfterSign = false; }
+  r.resignA = r.resignB = false; r.status = "completo";
   const { hash, ...rest } = r; r.hash = await sha256(JSON.stringify({ ...rest, photos: r.photos.map(p => p.src.length) }));
-  S.reports.unshift(r);
-  if (!(await persist("cidnow.reports", S.reports))) { S.reports[0] = { ...r, photos: [] }; store.set("cidnow.reports", S.reports); S.reports[0] = r; toast("CID salvato senza foto: memoria del telefono piena"); }
+  const ix = S.reports.findIndex(x => x.id === r.id); if (ix >= 0) S.reports[ix] = r; else S.reports.unshift(r);
+  if (update) toast(r.modifiedAfterSign ? "Modifiche salvate (senza nuove firme)" : "Modifiche salvate e rifirmate");
+  if (!(await persist("cidnow.reports", S.reports))) { store.set("cidnow.reports", S.reports.map(x => ({ ...x, photos: [] }))); toast("CID salvato senza foto: memoria del telefono piena"); }
   unpersist("cidnow.draft"); S.step = 6; render(); window.scrollTo(0, 0);
 }
 
-function buildPDF(r) {
+function buildPDF(r, onlyAttach = false) {
   const { jsPDF } = window.jspdf; const doc = new jsPDF({ unit: "mm", format: "a4" });
   const BLUE = [31, 95, 214], YEL = [226, 177, 0], INK = [20, 24, 34], GREY = [110, 118, 132];
   const fmt = v => v ? String(v) : "";
@@ -1088,6 +1118,7 @@ function buildPDF(r) {
   const lines = (x, y, w, maxY, pairs, size = 6.6) => { let cy = y; doc.setFontSize(size); for (const [l, v] of pairs) { if (cy > maxY) break; doc.setFont("helvetica", "normal"); doc.setTextColor(...GREY); doc.text(l, x, cy); const lw = doc.getTextWidth(l) + 1.2; doc.setTextColor(...INK); doc.setFont("helvetica", "bold"); const parts = doc.splitTextToSize(fmt(v) || "—", w - lw); doc.text(parts[0], x + lw, cy); cy += size * 0.44; for (const p of parts.slice(1)) { if (cy > maxY) break; doc.text(p, x + lw, cy); cy += size * 0.44; } } doc.setFont("helvetica", "normal"); };
   const para = (x, y, w, maxY, txt, size = 7) => { doc.setFontSize(size); doc.setFont("helvetica", "normal"); doc.setTextColor(...INK); const ps = doc.splitTextToSize(txt || "—", w); let cy = y; for (const p of ps) { if (cy > maxY) { doc.text("…", x, cy - size * 0.44 + 1.5); break; } doc.text(p, x, cy); cy += size * 0.42; } return cy; };
   const L = r.luogo;
+  if (!onlyAttach) {
   // Intestazione
   doc.setFont("helvetica", "bold"); doc.setFontSize(13); doc.setTextColor(...INK); doc.text("CONSTATAZIONE AMICHEVOLE DI INCIDENTE", 8, 12);
   doc.setFont("helvetica", "normal"); doc.setFontSize(6.8); doc.setTextColor(...GREY); doc.text("Denuncia di sinistro · Da compilare e firmare da entrambi i conducenti · Non modificare dopo la firma", 8, 16);
@@ -1130,10 +1161,10 @@ function buildPDF(r) {
   box(129, y + 32.5, 73, 31.5, 14, "Osservazioni B", YEL); para(131, y + 39.5, 69, y + 63.5, r.B.osserv, 6.4);
   // 15 firme
   y = 268; ["A", "B"].forEach((w, i) => { const x = 8 + i * 97; box(x, y, 96, 22, 15, "Firma del conducente " + w, w === "A" ? BLUE : YEL); if (r["firma" + w]) { try { doc.addImage(r["firma" + w], "PNG", x + 18, y + 4, 60, 17); } catch {} } });
-  doc.setFontSize(5.6); doc.setTextColor(...GREY); doc.text(`Firmato digitalmente su dispositivo il ${fmtDateTime(r.signedAt)} · SHA-256 ${r.hash}`, 8, 294);
-  // Pagina 2: allegati
-  doc.addPage(); doc.setTextColor(...INK); doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.text("Allegati al CID " + r.id, 8, 13);
-  lines(8, 21, 194, 50, [["Posizione", L.lat != null ? `${L.lat.toFixed(6)}, ${L.lon.toFixed(6)} (±${Math.round(L.acc || 0)} m) · fonte GPS` : "inserita manualmente (GPS non disponibile)"], ["Tipo di luogo", PLACES[r.place]], ["Dinamica rilevata", `${r.tipo || "—"} · ${r.tipoDescr || ""}`], ["Metodo", `${r.metodo || "manuale"} · affidabilità ${r.conf || "—"} · circostanze confermate dai conducenti`], ["Foto allegate", String(r.photos.length)]], 7.2);
+  doc.setFontSize(5.6); doc.setTextColor(...GREY); doc.text(`Firmato digitalmente su dispositivo il ${fmtDateTime(r.signedAt)}${r.modifiedAfterSign ? " · modificato dopo la firma il " + fmtDateTime(r.modifiedAt) : ""} · SHA-256 ${r.hash}`, 8, 294);
+  doc.addPage(); }
+  // Allegati doc.setTextColor(...INK); doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.text("Allegati al CID " + r.id, 8, 13);
+  lines(8, 21, 194, 50, [["Firma", `${fmtDateTime(r.signedAt)}${r.modifiedAfterSign ? " · modificato dopo la firma il " + fmtDateTime(r.modifiedAt) : ""} · SHA-256 ${String(r.hash).slice(0, 24)}…`], ["Posizione", L.lat != null ? `${L.lat.toFixed(6)}, ${L.lon.toFixed(6)} (±${Math.round(L.acc || 0)} m) · fonte GPS` : "inserita manualmente (GPS non disponibile)"], ["Tipo di luogo", PLACES[r.place]], ["Dinamica rilevata", `${r.tipo || "—"} · ${r.tipoDescr || ""}`], ["Metodo", `${r.metodo || "manuale"} · affidabilità ${r.conf || "—"} · circostanze confermate dai conducenti`], ["Foto allegate", String(r.photos.length)]], 7.2);
   let py = 47; const pw = 62, ph = 46;
   r.photos.forEach((p, i) => { const col = i % 3, x = 8 + col * (pw + 4); if (col === 0 && i) py += ph + 9; if (py + ph > 285) { doc.addPage(); py = 14; }
     const s = Math.min(pw / p.w, ph / p.h), iw = p.w * s, ih = p.h * s; try { doc.addImage(p.src, "JPEG", x + (pw - iw) / 2, py, iw, ih); } catch {}
@@ -1153,17 +1184,170 @@ function carPDF(doc, x, y, sel, C) {
 }
 async function downloadPDF() {
   const r = S.r; let doc;
-  try { doc = buildPDF(r); } catch (e) { console.error(e); toast("PDF non generato: libreria non caricata"); return; }
-  const name = `${r.id}.pdf`;
-  if (CAP.downloads) { try { await CAP.downloads.save({ filename: name, data: doc.output("arraybuffer") }); toast("CID salvato"); } catch (e) { if (e?.code !== "cancelled") toast("Download annullato"); } return; }
-  try { const file = new File([doc.output("blob")], name, { type: "application/pdf" });
+  toast("Compilo il modulo ufficiale…", 1500);
+  let bytes; try { bytes = await finalPDFBytes(r); } catch (e) { console.error(e); toast("PDF non generato: libreria non caricata"); return; }
+  const name = `${r.id}.pdf`, blob = new Blob([bytes], { type: "application/pdf" });
+  if (CAP.downloads) { try { await CAP.downloads.save({ filename: name, data: blob }); toast("CID salvato"); } catch (e) { if (e?.code !== "cancelled") toast("Download annullato"); } return; }
+  try { const file = new File([blob], name, { type: "application/pdf" });
     if (navigator.canShare?.({ files: [file] })) { await navigator.share({ files: [file], title: "CID " + r.id }); return; } } catch (e) { if (e?.name === "AbortError") return; }
-  try { doc.save(name); } catch { toast("Download non disponibile qui"); }
+  try { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); } catch { toast("Download non disponibile qui"); }
 }
 async function sharePDF() {
-  try { const blob = buildPDF(S.r).output("blob"), file = new File([blob], S.r.id + ".pdf", { type: "application/pdf" });
+  try { const blob = new Blob([await finalPDFBytes(S.r)], { type: "application/pdf" }), file = new File([blob], S.r.id + ".pdf", { type: "application/pdf" });
     if (navigator.canShare?.({ files: [file] })) { await navigator.share({ files: [file], title: "CID " + S.r.id }); return; } } catch (e) { if (e?.name === "AbortError") return; }
   toast("Condivisione non disponibile qui: usa «Scarica CID»");
+}
+
+/* ---------- Modulo CAI ufficiale compilato (pdf-lib) ---------- */
+// Coordinate in punti tipografici dal bordo superiore della pagina A4 (595 x 842) del modulo ufficiale.
+const CAI_B = 367.2; // la colonna del veicolo B è la copia della colonna A spostata a destra
+async function buildOfficialPDF(r) {
+  const { PDFDocument, StandardFonts, rgb } = window.PDFLib;
+  const tpl = await (await fetch("modulo-cai.pdf")).arrayBuffer();
+  const pdf = await PDFDocument.load(tpl);
+  const font = await pdf.embedFont(StandardFonts.Helvetica), bold = await pdf.embedFont(StandardFonts.HelveticaBold);
+  const INK = rgb(0.05, 0.12, 0.45), RED = rgb(0.8, 0.1, 0.15);
+  const safe = s => String(s ?? "").replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/[–—]/g, "-").replace(/[^\x20-\x7E -ÿ€]/g, "");
+  let pg = pdf.getPage(0); const H = 842;
+  const T = (txt, x, y, maxW = 140, size = 7.6, f = font) => {
+    let s = safe(txt).trim(); if (!s) return;
+    while (size > 5.2 && f.widthOfTextAtSize(s, size) > maxW) size -= 0.2;
+    while (s.length > 1 && f.widthOfTextAtSize(s, size) > maxW) s = s.slice(0, -1);
+    pg.drawText(s, { x, y: H - y, size, font: f, color: INK });
+  };
+  const wrap = (txt, x, y, maxW, lines, lh = 9.5, size = 7) => {
+    const words = safe(txt).split(/\s+/).filter(Boolean); let line = "", n = 0;
+    for (const w of words) { const t = line ? line + " " + w : w; if (font.widthOfTextAtSize(t, size) > maxW && line) { T(line, x, y + n * lh, maxW, size); n++; line = w; if (n >= lines) return; } else line = t; }
+    if (line && n < lines) T(line, x, y + n * lh, maxW, size);
+  };
+  const X = (cx, cy, size = 10) => { const w = bold.widthOfTextAtSize("X", size); pg.drawText("X", { x: cx - w / 2, y: H - cy - size * 0.36, size, font: bold, color: INK }); };
+  const yesNo = (v, noX, siX, y) => X(v ? siX : noX, y);
+  const L = r.luogo;
+  // 1-5
+  T(fmtDate(r.data), 24, 63, 105); T(r.ora, 137, 63, 26);
+  T([L.comune, L.prov && "(" + L.prov + ")", [L.via, L.civico].filter(Boolean).join(" "), L.cap].filter(Boolean).join(", "), 166, 63, 268);
+  yesNo(r.feriti, 471.5, 543.5, 58.6); yesNo(r.danniVeicoli, 55, 89, 94.6); yesNo(r.danniOggetti, 148, 183, 94.6);
+  wrap(r.testimoni || "", 232, 87, 333, 2, 10);
+  // colonne A e B
+  ["A", "B"].forEach((w, i) => {
+    const P = r[w], o = i ? CAI_B : 0, R = (i ? 572 : 205);
+    const t = (txt, x, y, size, f) => T(txt, x + o, y, R - (x + o), size, f);
+    const up = s => safe(s).toUpperCase();
+    const addr = [P.indirizzo, P.cap, P.citta, P.prov && "(" + P.prov + ")"].filter(Boolean).join(" ");
+    // 6 contraente / assicurato
+    if (P.contrSame) { t(up(P.cognome), 59, 155); t(up(P.nome), 45, 172.5); t(P.cf, 94, 184.5); t(addr, 21, 206.5, 7.2); t(P.cap, 45, 220.5); T(P.nazione, 124 + o, 220.5, 78); }
+    else { t(up(P.contrNome), 59, 155); t(P.contrIndirizzo, 21, 206.5, 7.2); }
+    t([P.tel, P.email].filter(Boolean).join(" · "), 79, 232.5);
+    // 7 veicolo
+    T(`${P.marca} ${P.modello}`.trim(), 21 + o, 289, 90); T(up(P.targa), 21 + o, 313, 90, 8.6, bold); T(P.statoImm, 21 + o, 337, 90);
+    // 8 assicurazione
+    t(P.assicurazione, 81, 364.6); t(P.polizza, 71, 375.5); t(P.cartaVerde, 88, 388.5);
+    T(fmtDate(P.validaDal), 59 + o, 412.5, 68); t(fmtDate(P.validaAl), 139, 412.5);
+    t(P.agenzia, 81, 448.6);
+    yesNo(P.kasko, 127 + o, 176 + o, 502.6);
+    // 9 conducente
+    t(up(P.cognome), 59, 526.7); t(up(P.nome), 45, 544.5);
+    t(`${fmtDate(P.nascita)}${P.luogoNascita ? "  " + P.luogoNascita : ""}`, 79, 556.5); t(P.cf, 79, 568.5);
+    t(addr, 21, 591.5, 7); T(P.nazione, 124 + o, 604.5, 78);
+    t([P.tel, P.email].filter(Boolean).join(" · "), 79, 616.5); t(up(P.patenteN), 62, 628.5);
+    T(up(P.patenteCat), 83 + o, 640.5, 16); t(fmtDate(P.patenteScad), 150, 640.5);
+    // 10 punto d'urto: freccia rossa sull'auto disegnata nel modulo
+    const cx = i ? 499.5 : 73.5, top = 667, bot = 733, hw = 12.5;
+    const PT = { A: [cx, top, 0, -1], AS: [cx - hw + 3, top + 6, -1, -1], AD: [cx + hw - 3, top + 6, 1, -1], S: [cx - hw, 700, -1, 0], D: [cx + hw, 700, 1, 0], P: [cx, bot, 0, 1], PS: [cx - hw + 3, bot - 6, -1, 1], PD: [cx + hw - 3, bot - 6, 1, 1] };
+    P.urto.forEach(z => { const p = PT[z]; if (!p) return; const [x, y, dx, dy] = p, n = Math.hypot(dx, dy), ux = dx / n, uy = dy / n, len = 15;
+      const sx = x + ux * len, sy = y + uy * len;
+      pg.drawLine({ start: { x: sx, y: H - sy }, end: { x: x + ux * 2, y: H - (y + uy * 2) }, thickness: 1.6, color: RED });
+      const a = Math.atan2(-uy, -ux), hx = x + ux * 1, hy = y + uy * 1, s = 4.5;
+      pg.drawSvgPath(`M ${hx} ${hy} L ${hx - s * Math.cos(a - 0.5)} ${hy - s * Math.sin(a - 0.5)} L ${hx - s * Math.cos(a + 0.5)} ${hy - s * Math.sin(a + 0.5)} Z`, { x: 0, y: H, color: RED }); });
+    // 11 danni visibili, 14 osservazioni
+    wrap(P.danni, i ? 444 : 21, 759, i ? 572 - 444 : 150 - 21, 2, 9.5, 6.6); wrap(P.osserv, 21 + o, 795.5, R - 21 - o, 2, 10.5);
+    // 12 circostanze + numero di caselle
+    const cbx = i ? 378 : 215.3; P.circ.forEach(n => X(cbx, 167.4 + 24 * (n - 1)));
+    const cnt = String(P.circ.length), cw = bold.widthOfTextAtSize(cnt, 9); pg.drawText(cnt, { x: cbx - cw / 2, y: H - 588, size: 9, font: bold, color: INK });
+  });
+  // 13 grafico, 15 firme
+  const img = async (u, x, y, w, h) => { if (!u) return; try { const im = u.startsWith("data:image/png") ? await pdf.embedPng(u) : await pdf.embedJpg(u); const s = Math.min(w / im.width, h / im.height); pg.drawImage(im, { x: x + (w - im.width * s) / 2, y: H - y - h + (h - im.height * s) / 2, width: im.width * s, height: im.height * s }); } catch {} };
+  await img(r.schizzo, 156, 676, 280, 92);
+  await img(r.firmaA, 239, 785, 57, 27); await img(r.firmaB, 297, 785, 56, 27);
+  if (r.modifiedAfterSign) T(`Modificato dopo la firma il ${fmtDateTime(r.modifiedAt)}`, 228, 838, 140, 5.5, bold);
+  // pagina 3: altre informazioni (targhe)
+  pg = pdf.getPage(2); T(safe(r.A.targa).toUpperCase(), 54, 124.5, 200, 9, bold); T(safe(r.B.targa).toUpperCase(), 335, 124.5, 200, 9, bold);
+  // allegati: foto, posizione GPS, dichiarazioni REC
+  try { const att = await PDFDocument.load(buildPDF(r, true).output("arraybuffer"));
+    (await pdf.copyPages(att, att.getPageIndices())).forEach(p => pdf.addPage(p)); } catch {}
+  pdf.setTitle(`CID ${r.id}`); pdf.setSubject("Constatazione amichevole di incidente - Denuncia di sinistro"); pdf.setCreator(`${APP.name} ${APP.version}`);
+  return pdf.save();
+}
+async function finalPDFBytes(r) {
+  try { if (window.PDFLib) return await buildOfficialPDF(r); } catch (e) { console.error(e); }
+  return buildPDF(r).output("arraybuffer"); // riserva: modulo ricostruito
+}
+
+/* ---------- Vie della città (OpenStreetMap / Photon) ---------- */
+let viaCtl = null, viaT = null;
+function viaSearch(el) {
+  clearTimeout(viaT); viaCtl?.abort(); const q = el.value.trim(); if (q.length < 3 || !navigator.onLine) return;
+  const [p] = el.dataset.bind.split("."), K = addrKeys(p), o = baseOf(p), city = o?.[K.city] || "";
+  viaT = setTimeout(async () => {
+    viaCtl = new AbortController();
+    try {
+      const qs = new URLSearchParams({ q: (q.replace(/\d+\s*$/, "").trim() + " " + city).trim(), lang: "it", limit: "15", osm_tag: "highway", bbox: "6.6,35.4,18.6,47.1" });
+      const j = await (await fetch("https://photon.komoot.io/api/?" + qs, { signal: viaCtl.signal })).json();
+      let items = (j.features || []).map(f => f.properties).filter(x => x.name && x.countrycode === "IT");
+      if (city) { const inCity = items.filter(x => norm(x.city || x.county || x.name) === norm(city) || norm(x.city) === norm(city)); if (inCity.length) items = inCity; }
+      const seen = new Set(); items = items.filter(x => { const k = norm(x.name + "|" + (x.city || "") + "|" + (x.postcode || "")); if (seen.has(k)) return false; seen.add(k); return true; }).slice(0, 7);
+      if (document.activeElement !== el) return;
+      acHide(el); if (!items.length) return;
+      const ul = document.createElement("ul"); ul.className = "acl";
+      items.forEach(x => { const li = document.createElement("li"); li.innerHTML = `<span>${esc(x.name)}</span><small>${esc([x.postcode, x.city || x.county].filter(Boolean).join(" "))}</small>`;
+        li.addEventListener("pointerdown", ev => { ev.preventDefault(); viaPick(el, x); }); ul.appendChild(li); });
+      el.after(ul);
+    } catch {}
+  }, 280);
+}
+function viaPick(el, x) {
+  const [p, k] = el.dataset.bind.split("."), K = addrKeys(p), o = baseOf(p);
+  const num = (el.value.match(/\s(\d+[a-zA-Z]?(\/\d+)?)\s*$/) || [])[1];
+  if (p === "L") setField(p, k, x.name, false); else setField(p, k, x.name + (num ? " " + num : " "), false);
+  const c = COMUNI?.res.find(cc => norm(cc.n) === norm(x.city || "")) || null;
+  if (x.city && !o[K.city]) setField(p, K.city, c ? c.n : x.city);
+  if (c && !o[K.prov]) setField(p, K.prov, c.p);
+  if (x.postcode && /^\d{5}$/.test(x.postcode) && (!o[K.cap] || (c && !hasCap(c.c, o[K.cap])))) setField(p, K.cap, x.postcode);
+  if (p !== "L") setField(p, K.naz, o[K.naz] || "Italia", false);
+  acHide(el); el.focus(); const v = el.value; el.setSelectionRange(v.length, v.length);
+  if (p !== "P") saveDraft();
+}
+
+/* ---------- Lettura documenti sul telefono (OCR Tesseract, senza server) ---------- */
+let ocrWorker = null;
+function loadScript(src) { return new Promise((ok, ko) => { const s = document.createElement("script"); s.src = src; s.onload = ok; s.onerror = ko; document.head.appendChild(s); }); }
+async function ocrText(blobs, onStep) {
+  if (!window.Tesseract) await loadScript("vendor/tess/tesseract.min.js");
+  if (!ocrWorker) { onStep?.("Preparo la lettura (solo la prima volta)…");
+    const abs = u => new URL(u, location.href).href;
+    ocrWorker = await Tesseract.createWorker("ita", 1, { workerPath: abs("vendor/tess/worker.min.js"), corePath: abs("vendor/tess/"), langPath: abs("vendor/tess/lang"), gzip: true }); }
+  let out = "";
+  for (let i = 0; i < blobs.length; i++) { onStep?.(`Leggo il documento ${i + 1} di ${blobs.length}…`); const { data } = await ocrWorker.recognize(blobs[i]); out += "\n" + data.text; }
+  return out;
+}
+function parseDocs(txt) {
+  const T = txt.replace(/[|]/g, " ").replace(/[ \t]+/g, " "), lines = T.split(/\n/).map(s => s.trim()).filter(Boolean), o = {};
+  const field = n => { const re = new RegExp("^" + n.replace(".", "\\.?") + "[.,:]?\\s+(.+)$", "i"); for (const l of lines) { const m = l.match(re); if (m) return m[1].trim(); } return ""; };
+  const date = s => { const m = String(s).match(/(\d{2})[./-](\d{2})[./-](\d{2,4})/); if (!m) return ""; let y = m[3]; if (y.length === 2) y = (+y > (new Date().getFullYear() % 100) + 1 ? "19" : "20") + y; return `${y}-${m[2]}-${m[1]}`; };
+  // patente di guida (modello UE): 1 cognome, 2 nome, 3 data e luogo di nascita, 4b scadenza, 5 numero, 9 categorie
+  const c1 = field("1"), c2 = field("2"), c3 = field("3"), c4b = field("4b"), c5 = field("5"), c9 = field("9");
+  if (c1 && /^[A-ZÀ-Ü' ]{2,}$/i.test(c1)) o.cognome = titleCase(c1.replace(/[^A-Za-zÀ-ÿ' ]/g, ""));
+  if (c2 && /^[A-ZÀ-Ü' ]{2,}$/i.test(c2)) o.nome = titleCase(c2.replace(/[^A-Za-zÀ-ÿ' ]/g, ""));
+  if (c3) { o.nascita = date(c3); const luogo = c3.replace(/\d{2}[./-]\d{2}[./-]\d{2,4}/, "").replace(/\(.*?\)/g, "").replace(/[^A-Za-zÀ-ÿ' ]/g, " ").trim(); if (luogo) { const b = exactBirth(luogo); o.luogoNascita = b ? b.n : titleCase(luogo); if (b) o.luogoNascitaCod = b.k; } }
+  if (c4b) o.patenteScad = date(c4b);
+  if (c5) { const m = c5.replace(/\s/g, "").match(/[A-Z0-9]{8,12}/i); if (m) o.patenteN = m[0].toUpperCase(); }
+  if (c9) { const cats = (c9.toUpperCase().match(/\b(AM|A1|A2|A|B1|BE|B|C1E|C1|CE|C|D1E|D1|DE|D)\b/g) || []); if (cats.length) o.patenteCat = [...new Set(cats)].join(" "); }
+  // codice fiscale, targa, polizza (libretto / certificato assicurativo)
+  const cf = T.toUpperCase().replace(/\s/g, "").match(/[A-Z]{6}\d{2}[A-EHLMPRST]\d{2}[A-Z]\d{3}[A-Z]/); if (cf && cfValid(cf[0])) o.cf = cf[0];
+  const tg = T.toUpperCase().match(/\b([A-HJ-NPR-Z]{2})\s?(\d{3})\s?([A-HJ-NPR-Z]{2})\b/); if (tg) o.targa = tg[1] + tg[2] + tg[3];
+  const pol = T.match(/polizza[^\n\d]{0,12}([A-Z0-9][A-Z0-9./-]{5,})/i); if (pol) o.polizza = pol[1].toUpperCase();
+  const ass = ASSIC.find(a => norm(T).includes(norm(a.split(" ")[0])) && norm(a.split(" ")[0]).length > 3); if (ass) o.assicurazione = ass;
+  return o;
 }
 
 /* ---------- Utilità date ---------- */
@@ -1229,7 +1413,7 @@ document.addEventListener("change", async e => {
   const files = [...el.files]; el.value = "";
   if (a === "photo") { const slot = el.dataset.slot, def = SLOTS.find(s => s.k === slot);
     if (!def.multi) S.r.photos = S.r.photos.filter(p => p.slot !== slot);
-    for (const f of files) { try { const im = await readImage(f); S.r.photos.push({ slot, src: im.src, w: im.w, h: im.h, t: new Date().toISOString() }); } catch { toast("Foto non leggibile"); } }
+    for (const f of files) { try { const im = await readImage(f); S.r.photos.push({ slot, src: im.src, w: im.w, h: im.h, t: new Date().toISOString() }); } catch (e) { toast(e.message || "Foto non leggibile", 4500); } }
     saveDraft(); render(); }
   else if (a === "scanQR") scanQR(files[0]);
   else if (a === "scanB") scanDocs("B", files);

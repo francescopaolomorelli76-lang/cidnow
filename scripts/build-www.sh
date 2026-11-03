@@ -4,13 +4,15 @@ set -e
 cd "$(dirname "$0")/.."
 rm -rf www && mkdir -p www/data www/vendor
 cp src/data/comuni.json www/data/
-cp vendor/*.js www/vendor/
+cp -r vendor/* www/vendor/
+cp assets/modulo-cai.pdf www/modulo-cai.pdf
 cp assets/icon.svg www/icon.svg && cp assets/icon.svg src/icon.svg
 cp assets/icon-180.png www/apple-touch-icon.png
 cp assets/icon-192.png assets/icon-512.png www/
 VER=$(grep -o 'version: "[0-9.]*"' src/app.html | grep -o '[0-9.]*')
 # librerie locali al posto dei CDN (funziona offline)
 sed -e 's#https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js#vendor/jspdf.umd.min.js#' \
+    -e 's#https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js#vendor/pdf-lib.min.js#' \
     -e 's#https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js#vendor/qrcode.js#' \
     -e 's#https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js#vendor/jsQR.js#' src/app.html > /tmp/cidnow-body.html
 {
@@ -44,12 +46,12 @@ cat > www/sw.js <<JS
 // Service worker: l'app si apre e funziona anche senza rete (sul luogo dell'incidente).
 const CACHE = "cidnow-$VER";
 const SHELL = ["./", "index.html", "manifest.webmanifest", "icon.svg", "apple-touch-icon.png", "icon-192.png", "icon-512.png",
-  "data/comuni.json", "vendor/jspdf.umd.min.js", "vendor/qrcode.js", "vendor/jsQR.js"];
+  "data/comuni.json", "modulo-cai.pdf", "vendor/pdf-lib.min.js", "vendor/jspdf.umd.min.js", "vendor/qrcode.js", "vendor/jsQR.js"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())); });
 self.addEventListener("activate", e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())); });
 self.addEventListener("fetch", e => {
   const u = new URL(e.request.url);
-  if (e.request.method !== "GET" || u.hostname.includes("nominatim")) return; // l'indirizzo dal GPS va sempre chiesto in rete
+  if (e.request.method !== "GET" || u.hostname.includes("nominatim") || u.hostname.includes("photon")) return; // l'indirizzo dal GPS va sempre chiesto in rete
   e.respondWith(caches.match(e.request).then(hit => hit || fetch(e.request).then(res => {
     if (res.ok && (u.origin === location.origin || u.hostname.endsWith("gstatic.com") || u.hostname.endsWith("googleapis.com"))) { const cp = res.clone(); caches.open(CACHE).then(c => c.put(e.request, cp)); }
     return res; }).catch(() => caches.match("index.html"))));

@@ -20,6 +20,12 @@ Versione 0.2 (prima funzione: compilazione completa del CID dal luogo dell'incid
 - **GPS**: plugin nativo `@capacitor/geolocation` nell'app installata.
 - **Icona** con ali d'angelo: `assets/icon.svg`, `assets/icon-1024.png`, `assets/icon-store-1024.png` (quadrata, senza trasparenza, per App Store e Play Store).
 
+## Novità 0.4
+- **PDF = modulo CAI ufficiale** (`assets/modulo-cai.pdf`) compilato in automatico in ogni casella: data, luogo, feriti, danni, testimoni, contraenti, veicoli, assicurazioni, conducenti, circostanze con le X e il loro numero, frecce del punto d'urto sulle sagome, danni visibili, grafico, osservazioni, firme; targhe anche nel foglio «Altre informazioni». In coda: foto, dati GPS e dichiarazioni REC.
+- **Modifica dopo la firma**: dal CID firmato si va avanti e indietro tra i passi (anche toccando la barra in alto). Ogni modifica viene segnata con data e ora nel PDF finché entrambi non rifirmano.
+- **Vie della città**: scegliendo il comune, la via si completa con i suggerimenti di OpenStreetMap (servizio Photon, serve la rete) e il CAP esatto si inserisce da solo.
+- **Lettura documenti sul telefono** (Tesseract, senza server e senza inviare foto): patente (campi 1, 2, 3, 4b, 5, 9), codice fiscale, targa, polizza. Il codice fiscale si calcola dai dati letti.
+
 ## Struttura
 - `src/app.html` — l'app (HTML/CSS/JS, nessun build step)
 - `src/data/comuni.json` — comuni (ISTAT, CC BY 3.0 IT, via matteocontrini/comuni-json) e codici catastali (via codice-fiscale-js, CC BY-SA)
