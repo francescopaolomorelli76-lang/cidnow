@@ -35,6 +35,10 @@ Versione 0.2 (prima funzione: compilazione completa del CID dal luogo dell'incid
 - **Scarica tutto (ZIP)**: PDF del modulo ufficiale, foto, registrazioni audio, trascrizioni, firme, grafico e dati in JSON.
 - Le **registrazioni REC** restano salvate sul telefono insieme al CID.
 
+## Novità 0.6
+- **Scanner documenti con autoscatto**: fotocamera dal vivo con cornice nella forma del documento (patente, libretto, certificato assicurativo). Ogni lato della cornice diventa verde quando il bordo del documento è allineato; con 4 lati verdi, immagine ferma e a fuoco, lo scatto parte da solo. Per la patente chiede anche il retro (si può saltare).
+- **Lettura migliorata**: ritaglio sulla cornice, contrasto automatico, doppio passaggio di lettura; campi della patente, del libretto (A, D.1, D.3) e del certificato (impresa, polizza, validità).
+
 ## Struttura
 - `src/app.html` — l'app (HTML/CSS/JS, nessun build step)
 - `src/data/comuni.json` — comuni (ISTAT, CC BY 3.0 IT, via matteocontrini/comuni-json) e codici catastali (via codice-fiscale-js, CC BY-SA)

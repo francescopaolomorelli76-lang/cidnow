@@ -1,4 +1,4 @@
-<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#0A0E17"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="CIDnow"><link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icon.svg"><link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=0.5.1"><style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font-size:14px;font-family:system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style></head><body>
+<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#0A0E17"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="CIDnow"><link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icon.svg"><link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=0.6.0"><style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font-size:14px;font-family:system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style></head><body>
 <title>CIDnow</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -124,6 +124,25 @@ details.sec .in{padding:0 14px 14px}
 .fhint{font-size:12px;min-height:0}.fhint.ok{color:var(--ok)}.fhint.bad{color:var(--warn)}
 .fld input.flash{animation:flash 1s}
 @keyframes flash{0%{box-shadow:0 0 0 3px color-mix(in srgb,var(--ok) 55%,transparent)}100%{box-shadow:0 0 0 0 transparent}}
+/* Scanner documenti */
+#scanner{position:fixed;inset:0;z-index:40;background:#000;color:#fff;overflow:hidden}
+#scanner video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+#scanner .sc-mask{position:absolute;inset:0;background:rgba(0,0,0,.55)}
+#scanner .sc-frame{position:absolute;border-radius:14px}
+#scanner .sc-frame i{position:absolute;background:rgba(255,255,255,.85);border-radius:3px;transition:background .15s,box-shadow .15s}
+#scanner .sc-frame .t{left:6%;right:6%;top:-3px;height:5px}#scanner .sc-frame .b{left:6%;right:6%;bottom:-3px;height:5px}
+#scanner .sc-frame .l{top:8%;bottom:8%;left:-3px;width:5px}#scanner .sc-frame .r{top:8%;bottom:8%;right:-3px;width:5px}
+#scanner .sc-frame i.on{background:#2EE87A;box-shadow:0 0 12px #2EE87A}
+#scanner.ready .sc-frame{box-shadow:0 0 0 4px #2EE87A,0 0 30px rgba(46,232,122,.6)}
+#scanner.flash::after{content:"";position:absolute;inset:0;background:#fff;animation:scflash .45s ease-out forwards}
+@keyframes scflash{from{opacity:.9}to{opacity:0}}
+#scanner .sc-top{position:absolute;left:0;right:0;top:0;padding:calc(14px + env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) 10px max(16px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:4px;align-items:flex-start;background:linear-gradient(rgba(0,0,0,.6),transparent)}
+#scanner .sc-top b{font-family:var(--f-display);font-size:20px}#scanner .sc-sub{font-size:13px;opacity:.8}
+#scanner .sc-msg{position:absolute;left:16px;right:16px;bottom:calc(120px + env(safe-area-inset-bottom,0px));text-align:center;font-weight:600;font-size:16px;text-shadow:0 1px 4px #000}
+#scanner .sc-bar{position:absolute;left:0;right:0;bottom:0;padding:14px max(16px,env(safe-area-inset-right,0px)) calc(18px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:12px}
+#scanner .sc-bar .btn{background:rgba(255,255,255,.14);color:#fff;border-color:rgba(255,255,255,.25)}
+#scanner .sc-bar .btn:last-child{justify-self:end}
+#scanner .sc-shot{width:72px;height:72px;border-radius:50%;border:5px solid #fff;background:rgba(255,255,255,.25);cursor:pointer}
 /* Privacy */
 .consent{display:flex;gap:12px;align-items:flex-start;padding:12px;border:1px solid var(--line);border-radius:14px;background:var(--surface);cursor:pointer}
 .consent input{width:22px;height:22px;flex:none;accent-color:var(--a);margin-top:2px}
@@ -236,7 +255,7 @@ details.sec .in{padding:0 14px 14px}
 /* ============================================================
    CIDnow — Constatazione Amichevole di Incidente (CAI / CID)
    ============================================================ */
-const APP = { name: "CIDnow", version: "0.5.1" };
+const APP = { name: "CIDnow", version: "0.6.0" };
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -612,8 +631,8 @@ function viewProfile() {
   <div class="banner info"><span class="ic">i</span><div style="font-size:13px">Tocca un campo: il telefono propone i tuoi dati salvati (nome, residenza, telefono). Scrivendo il comune o il CAP, provincia e CAP si completano da soli. Il codice fiscale si calcola da cognome, nome, sesso, data e luogo di nascita.</div></div>
   <section class="card"><div class="row" style="justify-content:space-between"><b>Compila dalle foto</b>${aiReady() ? `<span class="tag ok">AI</span>` : `<span class="tag ok">SUL TELEFONO</span>`}</div>
     <p class="muted" style="margin:0;font-size:13px">Fotografa patente, libretto e certificato assicurativo: i campi vengono letti e inseriti per te.</p>
-    <label class="btn primary" style="position:relative">${S.ai.busy ? `<span class="spin"></span> ${esc(S.ai.msg || "Lettura in corso…")}` : "Scatta o scegli le foto dei documenti"}<input type="file" accept="image/*" capture="environment" multiple data-act-file="scanP" style="position:absolute;inset:0;opacity:0" ${S.ai.busy ? "disabled" : ""}></label>
-    <span class="muted" style="font-size:12px">${aiReady() ? "Lettura con analisi AI." : "Lettura direttamente sul telefono, senza inviare le foto."} Fotografa il documento dritto, vicino, con buona luce e senza riflessi. Controlla sempre i campi compilati (in verde).</span>
+    <button class="btn primary" data-act="docPicker" data-t="P" ${S.ai.busy ? "disabled" : ""}>${S.ai.busy ? `<span class="spin"></span> ${esc(S.ai.msg || "Lettura in corso…")}` : "Scansiona patente, libretto o assicurazione"}</button>
+    <span class="muted" style="font-size:12px">${aiReady() ? "Lettura con analisi AI." : "Lettura direttamente sul telefono, senza inviare le foto."} Inquadra il documento nella cornice: quando i 4 lati diventano verdi lo scatto parte da solo, poi ti chiede il retro se serve. Controlla sempre i campi compilati (in verde).</span>
   </section>
   <details class="sec" open><summary>Conducente e patente <span class="muted">${filled(d, F_DRIVER)}</span></summary><div class="in">${fieldsHTML("P", F_DRIVER, d, d._auto)}</div></details>
   <details class="sec" open><summary>Veicolo <span class="muted">${filled(d, F_VEH)}</span></summary><div class="in">${fieldsHTML("P", F_VEH, d, d._auto)}</div></details>
@@ -715,7 +734,7 @@ function stepB(r) {
     <span class="muted" style="font-size:12px">Nell'app installata i telefoni si scambiano i dati anche avvicinandoli (Bluetooth / NFC). Il QR funziona sempre, anche tra iPhone e Android.</span></section>
   <section class="card">${checkHTML("B", "informato", "Ho informato il conducente B che i suoi dati servono solo a compilare questo CID (art. 14 GDPR)", B)}</section>
   <section class="card"><div class="row" style="justify-content:space-between"><b>B non ha l'app</b>${aiReady() ? `<span class="tag ok">AI</span>` : ""}</div>
-    ${consentOn("camera") ? `<label class="btn" style="position:relative">${S.ai.busy ? `<span class="spin"></span> ${esc(S.ai.msg || "Lettura documenti…")}` : "Fotografa patente, libretto e assicurazione di B"}<input type="file" accept="image/*" capture="environment" multiple data-act-file="scanB" style="position:absolute;inset:0;opacity:0" ${S.ai.busy ? "disabled" : ""}></label>` : ""}
+    <button class="btn yellow" data-act="docPicker" data-t="B" ${S.ai.busy ? "disabled" : ""}>${S.ai.busy ? `<span class="spin"></span> ${esc(S.ai.msg || "Lettura documenti…")}` : "Scansiona patente, libretto e assicurazione di B"}</button>
     <span class="muted" style="font-size:12px">Oppure compila a mano: comune, via, CAP, provincia e codice fiscale si completano da soli.</span></section>
   <details class="sec" open><summary><span><span class="tag b">B</span> Conducente</span><span class="muted">${filled(B, F_DRIVER)}</span></summary><div class="in">${fieldsHTML("B", F_DRIVER, B, r.autoFields.B)}</div></details>
   <details class="sec" open><summary><span><span class="tag b">B</span> Veicolo</span><span class="muted">${filled(B, F_VEH)}</span></summary><div class="in">${fieldsHTML("B", F_VEH, B, r.autoFields.B)}</div></details>
@@ -1098,7 +1117,8 @@ Rispondi con SOLO un oggetto JSON con queste chiavi: ${AI_FIELDS_DOC}.`;
       n = mergeParty(w, (await aiCall(prompt, imgs.slice(0, CAP.maxImages))) || {}); done = true;
     } catch (e) { /* si passa alla lettura sul telefono */ }
   }
-  if (!done) { try { n = await ocrMerge(w, imgs); done = true; } catch (e) { console.error(e); } }
+  if (!done) { try { const shots = []; for (const b of imgs) { const im = await createImageBitmap(b); const c = document.createElement("canvas"); c.width = im.width; c.height = im.height; c.getContext("2d").drawImage(im, 0, 0); shots.push({ canvas: c }); }
+      n = mergeParty(w, await ocrDoc("", shots, m => { S.ai.msg = m; render(); })); done = true; } catch (e) { console.error(e); } }
   S.ai.busy = false; S.ai.msg = ""; if (w !== "P") saveDraft(); render(); if (w === "P") updateCF("P");
   toast(!done ? "Lettura non disponibile: compila a mano" : n ? `${n} campi compilati dal documento: controllali` : "Non riesco a leggere il documento: fotografalo dritto, vicino, con più luce", 4500);
 }
@@ -1454,23 +1474,154 @@ async function ocrText(blobs, onStep) {
   for (let i = 0; i < blobs.length; i++) { onStep?.(`Leggo il documento ${i + 1} di ${blobs.length}…`); const { data } = await ocrWorker.recognize(blobs[i]); out += "\n" + data.text; }
   return out;
 }
-function parseDocs(txt) {
-  const T = txt.replace(/[|]/g, " ").replace(/[ \t]+/g, " "), lines = T.split(/\n/).map(s => s.trim()).filter(Boolean), o = {};
-  const field = n => { const re = new RegExp("^" + n.replace(".", "\\.?") + "[.,:]?\\s+(.+)$", "i"); for (const l of lines) { const m = l.match(re); if (m) return m[1].trim(); } return ""; };
-  const date = s => { const m = String(s).match(/(\d{2})[./-](\d{2})[./-](\d{2,4})/); if (!m) return ""; let y = m[3]; if (y.length === 2) y = (+y > (new Date().getFullYear() % 100) + 1 ? "19" : "20") + y; return `${y}-${m[2]}-${m[1]}`; };
-  // patente di guida (modello UE): 1 cognome, 2 nome, 3 data e luogo di nascita, 4b scadenza, 5 numero, 9 categorie
-  const c1 = field("1"), c2 = field("2"), c3 = field("3"), c4b = field("4b"), c5 = field("5"), c9 = field("9");
-  if (c1 && /^[A-ZÀ-Ü' ]{2,}$/i.test(c1)) o.cognome = titleCase(c1.replace(/[^A-Za-zÀ-ÿ' ]/g, ""));
-  if (c2 && /^[A-ZÀ-Ü' ]{2,}$/i.test(c2)) o.nome = titleCase(c2.replace(/[^A-Za-zÀ-ÿ' ]/g, ""));
-  if (c3) { o.nascita = date(c3); const luogo = c3.replace(/\d{2}[./-]\d{2}[./-]\d{2,4}/, "").replace(/\(.*?\)/g, "").replace(/[^A-Za-zÀ-ÿ' ]/g, " ").trim(); if (luogo) { const b = exactBirth(luogo); o.luogoNascita = b ? b.n : titleCase(luogo); if (b) o.luogoNascitaCod = b.k; } }
-  if (c4b) o.patenteScad = date(c4b);
-  if (c5) { const m = c5.replace(/\s/g, "").match(/[A-Z0-9]{8,12}/i); if (m) o.patenteN = m[0].toUpperCase(); }
-  if (c9) { const cats = (c9.toUpperCase().match(/\b(AM|A1|A2|A|B1|BE|B|C1E|C1|CE|C|D1E|D1|DE|D)\b/g) || []); if (cats.length) o.patenteCat = [...new Set(cats)].join(" "); }
-  // codice fiscale, targa, polizza (libretto / certificato assicurativo)
+function parseDocs(txt, kind = "") {
+  const T = txt.replace(/[|]/g, " ").replace(/[‘’`]/g, "'").replace(/[ \t]+/g, " ");
+  const lines = T.split(/\n/).map(s => s.trim().replace(/^[lI\]\[!]([.,:])/, "1$1").replace(/^4\s*([abcABC])\b/, "4$1").replace(/^([0-9])\s*[.,:;]\s*/, "$1. ")).filter(Boolean), o = {};
+  const field = n => { const re = new RegExp("^" + n + "(?:[.,:;]\\s*|\\s+)(.+)$", "i"); for (const l of lines) { const m = l.match(re); if (m && m[1].trim().length > 1) return m[1].trim(); } return ""; };
+  const date = s => { const m = String(s).match(/(\d{2})\s?[./-]\s?(\d{2})\s?[./-]\s?(\d{2,4})/); if (!m) return ""; let y = m[3]; if (y.length === 2) y = (+y > (new Date().getFullYear() % 100) + 1 ? "19" : "20") + y; if (+m[2] < 1 || +m[2] > 12 || +m[1] < 1 || +m[1] > 31) return ""; return `${y}-${m[2]}-${m[1]}`; };
+  const letters = s => s.replace(/[^A-Za-zÀ-ÿ' ]/g, " ").replace(/\s+/g, " ").trim();
+  const isPat = kind === "patente" || /patente|driving|licen/i.test(T);
+  if (isPat) {
+    const c1 = field("1"), c2 = field("2"), c3 = field("3"), c4b = field("4b"), c5 = field("5"), c9 = field("9");
+    if (c1 && letters(c1).length > 1) o.cognome = titleCase(letters(c1));
+    if (c2 && letters(c2).length > 1) o.nome = titleCase(letters(c2));
+    let c3x = c3 || (lines.find(l => /\d{2}[./-]\d{2}[./-]\d{2,4}\s+[A-Za-z]{3,}/.test(l)) || "");
+    if (c3x) { o.nascita = date(c3x); const luogo = letters(c3x.replace(/\d{2}\s?[./-]\s?\d{2}\s?[./-]\s?\d{2,4}/, "").replace(/\(.*?\)/g, "")); if (luogo) { const b = exactBirth(luogo) || exactBirth(luogo.split(" ").slice(0, 3).join(" ")); o.luogoNascita = b ? b.n : titleCase(luogo); if (b) o.luogoNascitaCod = b.k; } }
+    const allDates = [...T.matchAll(/\d{2}\s?[./-]\s?\d{2}\s?[./-]\s?\d{2,4}/g)].map(m => date(m[0])).filter(Boolean).sort();
+    o.patenteScad = date(c4b) || (allDates.length > 1 ? allDates.at(-1) : "");
+    const num = (c5 || "").replace(/\s/g, "").match(/[A-Z0-9]{9,11}/i) || T.toUpperCase().replace(/[ ]/g, "").match(/\b[A-Z]{2}\d{7}[A-Z]\b|\bU1[A-Z0-9]{8}\b/);
+    if (num) o.patenteN = num[0].toUpperCase();
+    const catSrc = (c9 || "") + " " + lines.filter(l => /^(AM|A1|A2|A|B1|BE|B|C1E|C1|CE|C|D1E|D1|DE|D)\b.*\d{2}[./-]\d{2}[./-]\d{2,4}/.test(l)).map(l => l.split(" ")[0]).join(" ");
+    const cats = catSrc.toUpperCase().replace(/[^A-Z0-9 ]/g, " ").split(/\s+/).flatMap(t => t.match(/C1E|D1E|AM|A1|A2|B1|BE|C1|CE|D1|DE|A|B|C|D/g) || []); if (cats.length) o.patenteCat = [...new Set(cats)].join(" ");
+    if (!o.patenteN && !o.cognome) delete o.patenteScad;
+  }
+  if (kind === "libretto" || /circolazione|D\.\s?1|D\.\s?3/i.test(T)) {
+    const a = field("A"), d1 = field("D\\.?\\s?1"), d3 = field("D\\.?\\s?3");
+    const tgA = (a || "").toUpperCase().replace(/\s/g, "").match(/[A-Z]{2}\d{3}[A-Z]{2}/); if (tgA) o.targa = tgA[0];
+    if (d1) o.marca = titleCase(letters(d1)); if (d3) o.modello = titleCase(d3.replace(/[^A-Za-z0-9 .-]/g, "").trim());
+  }
+  if (kind === "assicurazione" || /assicura|polizza|carta verde/i.test(T)) {
+    const dal = T.match(/dal(?:le)?[^0-9]{0,20}(\d{2}[./-]\d{2}[./-]\d{2,4})[^0-9]{1,30}?al(?:le)?[^0-9]{0,20}(\d{2}[./-]\d{2}[./-]\d{2,4})/i); if (dal) { o.validaDal = date(dal[1]); o.validaAl = date(dal[2]); }
+  }
   const cf = T.toUpperCase().replace(/\s/g, "").match(/[A-Z]{6}\d{2}[A-EHLMPRST]\d{2}[A-Z]\d{3}[A-Z]/); if (cf && cfValid(cf[0])) o.cf = cf[0];
-  const tg = T.toUpperCase().match(/\b([A-HJ-NPR-Z]{2})\s?(\d{3})\s?([A-HJ-NPR-Z]{2})\b/); if (tg) o.targa = tg[1] + tg[2] + tg[3];
-  const pol = T.match(/polizza[^\n\d]{0,12}([A-Z0-9][A-Z0-9./-]{5,})/i); if (pol) o.polizza = pol[1].toUpperCase();
-  const ass = ASSIC.find(a => norm(T).includes(norm(a.split(" ")[0])) && norm(a.split(" ")[0]).length > 3); if (ass) o.assicurazione = ass;
+  if (!o.targa) { const tg = T.toUpperCase().match(/\b([A-HJ-NPR-Z]{2})\s?(\d{3})\s?([A-HJ-NPR-Z]{2})\b/); if (tg && kind !== "patente") o.targa = tg[1] + tg[2] + tg[3]; }
+  const pol = T.match(/polizza[^\n\d]{0,14}([A-Z0-9][A-Z0-9./-]{5,})/i); if (pol) o.polizza = pol[1].toUpperCase();
+  const cv = T.match(/carta verde[^\n\d]{0,14}([A-Z]{1,3}[ /-]?[A-Z0-9/ -]{6,})/i); if (cv) o.cartaVerde = cv[1].trim().toUpperCase();
+  const ass = ASSIC.find(a => { const w = norm(a.split(" ")[0]); return w.length > 3 && norm(T).includes(w); }); if (ass) o.assicurazione = ass;
+  Object.keys(o).forEach(k => { if (!o[k]) delete o[k]; });
+  return o;
+}
+
+/* ---------- Scanner documenti con autoscatto ---------- */
+const DOCS = {
+  patente: { l: "Patente di guida", ic: "🪪", ar: 85.6 / 54, sides: [["fronte", "Fronte della patente", "dati 1–5 e foto"], ["retro", "Retro della patente", "tabella delle categorie"]] },
+  libretto: { l: "Carta di circolazione (libretto)", ic: "📘", ar: 1.42, sides: [["dati", "Pagina con targa e dati del veicolo", "campi A, D.1, D.3"]] },
+  assicurazione: { l: "Certificato di assicurazione", ic: "📄", ar: 0.707, sides: [["fronte", "Certificato o carta verde", "impresa, polizza, validità"]] }
+};
+let SC = null;
+function docPicker(target) {
+  openModal(`<h2>${target === "P" ? "Quale tuo documento vuoi scansionare?" : "Quale documento del conducente B?"}</h2><p class="muted" style="margin:0">Si apre la fotocamera: inquadra il documento nel riquadro. Quando i quattro lati della cornice diventano verdi lo scatto parte da solo.</p>
+    ${Object.entries(DOCS).map(([k, d]) => `<button class="btn block" data-act="scanDoc" data-t="${target}" data-k="${k}" style="justify-content:flex-start"><span style="font-size:20px">${d.ic}</span> ${d.l}${d.sides.length > 1 ? ` <span class="muted" style="font-size:12px">· fronte e retro</span>` : ""}</button>`).join("")}
+    <label class="btn block" style="position:relative">Scegli una foto già fatta<input type="file" accept="image/*" multiple data-act-file="scan${target}" style="position:absolute;inset:0;opacity:0"></label>
+    <button class="btn block" data-act="closeModal">Annulla</button>`);
+}
+function frameRect(ar) {
+  const vw = innerWidth, vh = innerHeight; let w, h;
+  if (ar >= 1) { w = Math.min(vw * 0.9, vh * 0.5 * ar); h = w / ar; } else { h = Math.min(vh * 0.6, (vw * 0.86) / ar); w = h * ar; }
+  return { x: (vw - w) / 2, y: vh * 0.45 - h / 2, w, h };
+}
+async function openScanner(target, kind) {
+  closeModal();
+  if (!consentOn("camera")) { toast("Consenso alla fotocamera non dato: attivalo in «Privacy e consensi»", 4500); return; }
+  let stream;
+  try { stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } } }); }
+  catch (e) { toast(IS_PREVIEW ? "L'anteprima di Claude blocca la fotocamera: scegli una foto già fatta" : "Fotocamera non disponibile: consentila nelle impostazioni dell'iPhone, oppure scegli una foto", 5500); docPicker(target); return; }
+  SC = { target, kind, side: 0, shots: [], stream, prev: null, okSince: 0, t0: performance.now(), busy: false };
+  const d = DOCS[kind], el = document.createElement("div"); el.id = "scanner";
+  el.innerHTML = `<video playsinline autoplay muted></video>
+    <div class="sc-mask"></div><div class="sc-frame"><i class="t"></i><i class="r"></i><i class="b"></i><i class="l"></i></div>
+    <div class="sc-top"><span class="tag ${target === "P" ? "a" : "b"}">${target === "P" ? "TUOI DOCUMENTI" : "CONDUCENTE B"}</span><b id="sc-title"></b><span id="sc-sub" class="sc-sub"></span></div>
+    <div class="sc-msg" id="sc-msg">Inquadra il documento nel riquadro</div>
+    <div class="sc-bar"><button class="btn" data-act="scClose">Annulla</button><button class="sc-shot" data-act="scShot" aria-label="Scatta ora"></button><button class="btn" data-act="scSkip" id="sc-skip" hidden>Salta</button></div>`;
+  document.body.appendChild(el); SC.el = el; SC.video = el.querySelector("video"); SC.video.srcObject = stream;
+  try { await SC.video.play(); } catch {}
+  scLayout(); addEventListener("resize", scLayout); SC.raf = requestAnimationFrame(scLoop);
+}
+function scLayout() {
+  if (!SC) return; const d = DOCS[SC.kind], F = frameRect(d.ar), fr = SC.el.querySelector(".sc-frame"), side = d.sides[SC.side];
+  Object.assign(fr.style, { left: F.x + "px", top: F.y + "px", width: F.w + "px", height: F.h + "px" });
+  SC.el.querySelector(".sc-mask").style.clipPath = `polygon(0 0,100% 0,100% 100%,0 100%,0 ${F.y}px,${F.x}px ${F.y}px,${F.x}px ${F.y + F.h}px,${F.x + F.w}px ${F.y + F.h}px,${F.x + F.w}px ${F.y}px,0 ${F.y}px)`;
+  $("#sc-title").textContent = side[1]; $("#sc-sub").textContent = `${d.sides.length > 1 ? `Lato ${SC.side + 1} di ${d.sides.length} · ` : ""}${side[2]}`;
+  $("#sc-skip").hidden = !(SC.side > 0);
+}
+function scCloseCam() { if (!SC) return; cancelAnimationFrame(SC.raf); removeEventListener("resize", scLayout); SC.stream.getTracks().forEach(t => t.stop()); SC.el.remove(); }
+function scLoop(ts) {
+  if (!SC) return; SC.raf = requestAnimationFrame(scLoop);
+  if (SC.busy || ts - (SC.lastT || 0) < 110) return; SC.lastT = ts;
+  const v = SC.video; if (!v.videoWidth) return;
+  const g = scGeom(), AW = 220, m = 0.14, rw = g.fw * (1 + 2 * m), rh = g.fh * (1 + 2 * m), AH = Math.round(AW * rh / rw);
+  const c = SC.ac || (SC.ac = document.createElement("canvas")); c.width = AW; c.height = AH; const ctx = c.getContext("2d", { willReadFrequently: true });
+  ctx.drawImage(v, g.x0 - g.fw * m, g.y0 - g.fh * m, rw, rh, 0, 0, AW, AH);
+  const px = ctx.getImageData(0, 0, AW, AH).data, G = new Float32Array(AW * AH);
+  for (let i = 0; i < G.length; i++) G[i] = px[i * 4] * 0.299 + px[i * 4 + 1] * 0.587 + px[i * 4 + 2] * 0.114;
+  const at = (x, y) => G[y * AW + x], ex0 = Math.round(AW * m / (1 + 2 * m)), ex1 = AW - ex0, ey0 = Math.round(AH * m / (1 + 2 * m)), ey1 = AH - ey0;
+  const bx = Math.max(3, Math.round((ex1 - ex0) * 0.07)), by = Math.max(3, Math.round((ey1 - ey0) * 0.09));
+  // un lato è "trovato" se lungo quasi tutta la sua lunghezza c'è un bordo netto e la linea è dritta (non righe di testo)
+  const lineScore = (vals, pos, band) => { const strong = vals.filter(v => v > 22).length / vals.length; const ps = pos.filter((_, i) => vals[i] > 22);
+    if (ps.length < 4) return 0; const mu = ps.reduce((a, b) => a + b, 0) / ps.length, sd = Math.sqrt(ps.reduce((a, b) => a + (b - mu) ** 2, 0) / ps.length); return strong > 0.8 && sd < band * 0.35 ? 1 : 0; };
+  const edgeH = y0 => { const vals = [], pos = []; for (let x = ex0 + (ex1 - ex0) * 0.12; x < ex1 - (ex1 - ex0) * 0.12; x += 2) { let best = 0, by0 = y0; const xi = Math.round(x);
+      for (let y = Math.max(1, y0 - by); y <= Math.min(AH - 2, y0 + by); y++) { const gv = Math.abs(at(xi, y + 1) - at(xi, y - 1)); if (gv > best) { best = gv; by0 = y; } } vals.push(best); pos.push(by0); } return lineScore(vals, pos, by); };
+  const edgeV = x0 => { const vals = [], pos = []; for (let y = ey0 + (ey1 - ey0) * 0.12; y < ey1 - (ey1 - ey0) * 0.12; y += 2) { let best = 0, bx0 = x0; const yi = Math.round(y);
+      for (let x = Math.max(1, x0 - bx); x <= Math.min(AW - 2, x0 + bx); x++) { const gv = Math.abs(at(x + 1, yi) - at(x - 1, yi)); if (gv > best) { best = gv; bx0 = x; } } vals.push(best); pos.push(bx0); } return lineScore(vals, pos, bx); };
+  const sides = { t: edgeH(ey0), b: edgeH(ey1), l: edgeV(ex0), r: edgeV(ex1) }, TH = 0.5;
+  let lap = 0, lapN = 0, diff = 0, mean = 0;
+  for (let y = ey0 + 4; y < ey1 - 4; y += 2) for (let x = ex0 + 4; x < ex1 - 4; x += 2) { const l = 4 * at(x, y) - at(x - 1, y) - at(x + 1, y) - at(x, y - 1) - at(x, y + 1); lap += l * l; mean += at(x, y); lapN++; if (SC.prev) diff += Math.abs(at(x, y) - SC.prev[y * AW + x]); }
+  lap /= lapN; diff = SC.prev ? diff / lapN : 99; mean /= lapN; SC.prev = G;
+  const okSides = Object.entries(sides).filter(([, v]) => v > TH).map(([k]) => k), sharp = lap > 90, still = diff < 6, light = mean > 45;
+  ["t", "r", "b", "l"].forEach(k => SC.el.querySelector(".sc-frame ." + k).classList.toggle("on", okSides.includes(k)));
+  const all = okSides.length >= 4 || (okSides.length === 3 && sharp && still), ready = all && sharp && still && light;
+  const msg = !light ? "Poca luce: avvicinati a una finestra o accendi una luce" : okSides.length < 3 ? "Allinea i bordi del documento alla cornice" : !sharp ? "Tieni fermo: sto mettendo a fuoco…" : !still ? "Tieni fermo il telefono…" : "Perfetto, non muoverti…";
+  $("#sc-msg").textContent = msg; SC.el.classList.toggle("ready", ready);
+  if (ready) { if (!SC.okSince) SC.okSince = ts; else if (ts - SC.okSince > 650) scCapture(); } else SC.okSince = 0;
+  if (ts - SC.t0 > 9000 && !ready) $("#sc-msg").textContent = msg + " · oppure premi il pulsante per scattare";
+}
+function scGeom() {
+  const v = SC.video, vw = innerWidth, vh = innerHeight, s = Math.max(vw / v.videoWidth, vh / v.videoHeight), ox = (vw - v.videoWidth * s) / 2, oy = (vh - v.videoHeight * s) / 2, F = frameRect(DOCS[SC.kind].ar);
+  return { x0: (F.x - ox) / s, y0: (F.y - oy) / s, fw: F.w / s, fh: F.h / s };
+}
+async function scCapture() {
+  if (!SC || SC.busy) return; SC.busy = true; SC.el.classList.add("flash"); try { navigator.vibrate?.(60); } catch {}
+  const v = SC.video, g = scGeom(), mg = 0.03, sx = Math.max(0, g.x0 - g.fw * mg), sy = Math.max(0, g.y0 - g.fh * mg), sw = Math.min(v.videoWidth - sx, g.fw * (1 + 2 * mg)), sh = Math.min(v.videoHeight - sy, g.fh * (1 + 2 * mg));
+  const c = document.createElement("canvas"); c.width = Math.round(sw); c.height = Math.round(sh); c.getContext("2d").drawImage(v, sx, sy, sw, sh, 0, 0, c.width, c.height);
+  SC.shots.push({ side: DOCS[SC.kind].sides[SC.side][0], canvas: c });
+  await new Promise(r => setTimeout(r, 450)); SC.el.classList.remove("flash");
+  if (SC.side + 1 < DOCS[SC.kind].sides.length) { SC.side++; SC.okSince = 0; SC.prev = null; SC.t0 = performance.now(); scLayout(); $("#sc-msg").textContent = "✓ Fronte acquisito. Ora gira il documento"; setTimeout(() => { if (SC) SC.busy = false; }, 1400); }
+  else scFinish();
+}
+async function scFinish() {
+  if (!SC) return; const { target, kind, shots } = SC; scCloseCam(); SC = null; if (!shots.length) return;
+  if (target === "B" && S.r) shots.forEach(s => S.r.photos.push({ slot: "docB", src: s.canvas.toDataURL("image/jpeg", 0.85), w: s.canvas.width, h: s.canvas.height, t: new Date().toISOString() }));
+  S.ai.busy = true; S.ai.msg = "Leggo il documento…"; render();
+  let n = 0, ok = true;
+  try {
+    if (aiReady()) { try { n = mergeParty(target, (await aiCall(`Leggi questo documento italiano (${DOCS[kind].l}, ${shots.map(s => s.side).join(" e ")}) e trascrivi i campi. Usa null per ciò che non è leggibile. Non inventare. Date AAAA-MM-GG. Targa senza spazi. Rispondi con SOLO un oggetto JSON con queste chiavi: ${AI_FIELDS_DOC}.`, await Promise.all(shots.map(s => new Promise(r => s.canvas.toBlob(r, "image/jpeg", 0.9)))))) || {}); } catch { ok = false; } }
+    if (!aiReady() || !ok) { n = mergeParty(target, await ocrDoc(kind, shots, m => { S.ai.msg = m; render(); })); ok = true; }
+  } catch (e) { console.error(e); ok = false; }
+  S.ai.busy = false; S.ai.msg = ""; if (target !== "P") saveDraft(); render(); updateCF(target);
+  toast(!ok ? "Lettura non riuscita: compila a mano" : n ? `${DOCS[kind].l}: ${n} campi compilati. Controllali (sono in verde)` : "Non riesco a leggere i dati: riprova con più luce e senza riflessi", 5000);
+}
+function ocrPrep(src) {
+  const W = Math.min(2200, Math.max(1600, src.width)), H = Math.round(src.height * W / src.width), c = document.createElement("canvas"); c.width = W; c.height = H;
+  const ctx = c.getContext("2d", { willReadFrequently: true }); ctx.imageSmoothingQuality = "high"; ctx.drawImage(src, 0, 0, W, H);
+  const im = ctx.getImageData(0, 0, W, H), d = im.data, hist = new Uint32Array(256), Y = new Uint8ClampedArray(W * H);
+  for (let i = 0; i < Y.length; i++) { const y = d[i * 4] * 0.299 + d[i * 4 + 1] * 0.587 + d[i * 4 + 2] * 0.114; Y[i] = y; hist[Y[i]]++; }
+  let lo = 0, hi = 255, acc = 0; const N = Y.length; for (let i = 0; i < 256; i++) { acc += hist[i]; if (acc > N * 0.02) { lo = i; break; } } acc = 0; for (let i = 255; i >= 0; i--) { acc += hist[i]; if (acc > N * 0.02) { hi = i; break; } }
+  const k = 255 / Math.max(1, hi - lo); for (let i = 0; i < N; i++) { const v = Math.max(0, Math.min(255, (Y[i] - lo) * k)); d[i * 4] = d[i * 4 + 1] = d[i * 4 + 2] = v; }
+  ctx.putImageData(im, 0, 0); return c;
+}
+async function ocrDoc(kind, shots, onStep) {
+  const canv = shots.map(s => ocrPrep(s.canvas)); let txt = await ocrText(canv, onStep), o = parseDocs(txt, kind); S.lastOcr = txt;
+  if (Object.keys(o).length < 3) { await ocrWorker.setParameters({ tessedit_pageseg_mode: "11" }); txt += "\n" + await ocrText(canv, onStep); await ocrWorker.setParameters({ tessedit_pageseg_mode: "3" }); o = parseDocs(txt, kind); }
   return o;
 }
 
@@ -1607,6 +1758,11 @@ document.addEventListener("click", e => {
     case "closeModalBg": if (e.target === el) closeModal(); break;
     case "openReport": S.r = S.reports[+el.dataset.i]; S.view = "wizard"; S.step = 6; S.asr = {}; loadAudio(S.r).then(render); render(); window.scrollTo(0, 0); break;
     case "askDelete": askDelete(el.dataset.id); break;
+    case "docPicker": docPicker(el.dataset.t); break;
+    case "scanDoc": openScanner(el.dataset.t, el.dataset.k); break;
+    case "scShot": scCapture(); break;
+    case "scSkip": scFinish(); break;
+    case "scClose": scCloseCam(); SC = null; break;
     case "doDelete": doDelete(el.dataset.id); break;
     case "zip": downloadZip(); break;
     case "zipThen": { const id = el.dataset.id; closeModal(); const prev = S.r; S.r = S.reports.find(x => x.id === id) || S.r; downloadZip().finally(() => { S.r = prev; setTimeout(() => askDelete(id), 600); }); break; }
@@ -1620,8 +1776,8 @@ document.addEventListener("change", async e => {
     for (const f of files) { try { const im = await readImage(f); S.r.photos.push({ slot, src: im.src, w: im.w, h: im.h, t: new Date().toISOString() }); } catch (e) { toast(e.message || "Foto non leggibile", 4500); } }
     saveDraft(); render(); }
   else if (a === "scanQR") scanQR(files[0]);
-  else if (a === "scanB") scanDocs("B", files);
-  else if (a === "scanP") scanDocs("P", files);
+  else if (a === "scanB") { closeModal(); scanDocs("B", files); }
+  else if (a === "scanP") { closeModal(); scanDocs("P", files); }
   else if (a === "audio") { const who = el.dataset.who; S.recUrl = S.recUrl || {}; S.recUrl[who] = URL.createObjectURL(files[0]); S.recBlob = S.recBlob || {}; S.recBlob[who] = files[0]; S.r[who].recAudio = true; keepAudio(who, files[0]); transcribeFor(who, files[0]); }
 });
 
