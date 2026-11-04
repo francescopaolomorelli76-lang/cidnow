@@ -30,6 +30,11 @@ Versione 0.2 (prima funzione: compilazione completa del CID dal luogo dell'incid
 - **Riquadro 13 disegnato in automatico** dalla dinamica (circostanze, zone d'urto, tipo di luogo, via): tamponamento, incrocio con precedenza, frontale, cambio di corsia/sorpasso, rotatoria, parcheggio, retromarcia, portiera, veicolo in sosta. Se il disegno viene ritoccato a mano, nel PDF va quello.
 - **REC con trascrizione sul telefono** (Whisper base, ~80 MB scaricati una volta da Hugging Face e poi in cache): si registra, allo STOP compare il testo. Su iPhone il riconoscimento live di Safari è disattivato perché va in conflitto con la registrazione.
 
+## Novità 0.5.1
+- **Eliminazione** di un CID anche firmato (archivio o schermata del CID), con conferma e proposta di scaricare prima lo ZIP; anche la bozza si può eliminare.
+- **Scarica tutto (ZIP)**: PDF del modulo ufficiale, foto, registrazioni audio, trascrizioni, firme, grafico e dati in JSON.
+- Le **registrazioni REC** restano salvate sul telefono insieme al CID.
+
 ## Struttura
 - `src/app.html` — l'app (HTML/CSS/JS, nessun build step)
 - `src/data/comuni.json` — comuni (ISTAT, CC BY 3.0 IT, via matteocontrini/comuni-json) e codici catastali (via codice-fiscale-js, CC BY-SA)

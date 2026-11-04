@@ -1,5 +1,5 @@
 // Service worker: l'app si apre e funziona anche senza rete (sul luogo dell'incidente).
-const CACHE = "cidnow-0.5.0";
+const CACHE = "cidnow-0.5.1";
 const SHELL = ["./", "index.html", "manifest.webmanifest", "icon.svg", "apple-touch-icon.png", "icon-192.png", "icon-512.png",
   "data/comuni.json", "modulo-cai.pdf", "vendor/pdf-lib.min.js", "vendor/jspdf.umd.min.js", "vendor/qrcode.js", "vendor/jsQR.js"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())); });

@@ -235,7 +235,7 @@ details.sec .in{padding:0 14px 14px}
 /* ============================================================
    CIDnow — Constatazione Amichevole di Incidente (CAI / CID)
    ============================================================ */
-const APP = { name: "CIDnow", version: "0.5.0" };
+const APP = { name: "CIDnow", version: "0.5.1" };
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -577,7 +577,7 @@ function viewHome() {
     <h1>Compila il CID in pochi minuti, direttamente dal luogo.</h1>
     <p class="muted" style="margin:0">Il GPS rileva il luogo, le foto riconoscono targa, documenti e tipo di urto. Alla fine firmate entrambi sul telefono.</p>
     <button class="btn primary block bigcta" data-act="start">${draft ? "RIPRENDI LA BOZZA" : "NUOVO INCIDENTE"}</button>
-    ${draft ? `<button class="link" data-act="startNew">Oppure inizia un nuovo incidente</button>` : ""}
+    ${draft ? `<div class="row" style="justify-content:center;gap:18px"><button class="link" data-act="startNew">Inizia un nuovo incidente</button><button class="link" data-act="askDelete" data-id="${esc(S.r.id)}" style="color:var(--danger)">Elimina la bozza</button></div>` : ""}
   </section>
   ${S.gps.state === "denied" || S.gps.state === "unavailable" ? gpsWarning() : ""}
   <div class="status">
@@ -591,7 +591,7 @@ function viewHome() {
     : `<section class="card"><h2>Inserisci i tuoi dati una volta sola</h2><p class="muted" style="margin:0">Patente, targa e assicurazione restano salvati sul telefono. In caso di incidente il veicolo A è già compilato.</p>
       <div class="row"><button class="btn primary" data-act="profile">Crea il profilo</button><button class="btn" data-act="exampleProfile">Prova con dati di esempio</button></div></section>`}
   <section class="stack"><div class="row" style="justify-content:space-between"><h3>Archivio CID</h3><span class="muted" style="font-size:13px">${S.reports.length} salvati</span></div>
-    ${S.reports.length ? S.reports.map((r, i) => `<button class="rep" data-act="openReport" data-i="${i}"><div><div class="mono">${esc(r.id)}</div><b>${esc(r.tipo || "Incidente")}</b><div class="muted" style="font-size:13px">${esc(fmtDate(r.data))} ${esc(r.ora)} · ${esc(r.luogo.comune || r.luogo.via || "luogo manuale")}</div></div><div class="stack" style="gap:4px;align-items:flex-end"><span class="plate">${esc(r.B.targa || "—")}</span><span class="tag ok">FIRMATO</span></div></button>`).join("")
+    ${S.reports.length ? S.reports.map((r, i) => `<div class="row" style="gap:8px;flex-wrap:nowrap"><button class="rep" data-act="openReport" data-i="${i}" style="flex:1;min-width:0"><div style="min-width:0"><div class="mono">${esc(r.id)}</div><b>${esc(r.tipo || "Incidente")}</b><div class="muted" style="font-size:13px">${esc(fmtDate(r.data))} ${esc(r.ora)} · ${esc(r.luogo.comune || r.luogo.via || "luogo manuale")}</div></div><div class="stack" style="gap:4px;align-items:flex-end"><span class="plate">${esc(r.B.targa || "—")}</span><span class="tag ${r.modifiedAfterSign ? "warn" : "ok"}">${r.modifiedAfterSign ? "MODIFICATO" : "FIRMATO"}</span></div></button><button class="iconbtn" data-act="askDelete" data-id="${esc(r.id)}" aria-label="Elimina ${esc(r.id)}" title="Elimina" style="height:auto;align-self:stretch;color:var(--danger)">🗑</button></div>`).join("")
       : `<p class="muted" style="margin:0">Nessun CID completato. I moduli firmati appariranno qui, pronti da inviare all'assicurazione.</p>`}
   </section>
   <button class="link" data-act="privacy" style="align-self:center">Privacy e consensi</button></div>`;
@@ -805,7 +805,9 @@ function stepCID(r) {
     <img src="${r.schizzoManual && r.schizzo ? r.schizzo : sketchDataUrl(r)}" alt="Grafico dell'incidente" style="border-radius:12px;border:1px solid var(--line);background:#fff">
     <div class="muted" style="font-size:13px">PDF: modulo ufficiale CAI compilato + ${r.photos.length} foto allegate · ${[r.A.rec && "dichiarazione A", r.B.rec && "dichiarazione B"].filter(Boolean).join(" · ") || "nessuna dichiarazione REC"}</div></section>
   ${editedBanner(r)}
-  <div class="grid2"><button class="btn" data-act="goto" data-s="0">Modifica i dati</button><button class="btn" data-act="share">Condividi</button></div>
+  <button class="btn yellow block" data-act="zip">Scarica tutto (ZIP): PDF, foto, registrazioni, trascrizioni</button>
+  <div class="grid2"><button class="btn" data-act="goto" data-s="0">Modifica i dati</button><button class="btn" data-act="share">Condividi il PDF</button></div>
+  <button class="btn danger block" data-act="askDelete" data-id="${esc(r.id)}">Elimina questo CID</button>
   <button class="btn block" data-act="home">Fine</button>
   <p class="muted" style="font-size:12px;margin:0">Invia il PDF alla tua compagnia entro 3 giorni dal sinistro. Il modulo digitale riproduce i contenuti della constatazione amichevole; verifica con la tua compagnia le modalità di invio accettate.</p>`;
 }
@@ -1189,7 +1191,7 @@ async function toggleRec(who) {
     if (!NSR) { S.recErr[who] = IS_PREVIEW ? PREVIEW_MIC : e?.name === "NotAllowedError" ? "Accesso al microfono negato: consentilo nelle impostazioni del telefono per " + APP.name + "." : "Microfono non disponibile su questo dispositivo."; render(); return; } }
   S.rec = { who, base: S.r[who].rec ? S.r[who].rec.trim() + " " : "", final: "", interim: "" }; recStart = Date.now(); chunks = []; recLive = "";
   if (recStream && window.MediaRecorder) { try { mediaRec = new MediaRecorder(recStream); mediaRec.ondataavailable = e => e.data.size && chunks.push(e.data);
-      mediaRec.onstop = () => { recStream?.getTracks().forEach(t => t.stop()); if (chunks.length) { const blob = new Blob(chunks, { type: mediaRec.mimeType || "audio/mp4" }); S.recUrl[who] = URL.createObjectURL(blob); S.recBlob = S.recBlob || {}; S.recBlob[who] = blob; S.r[who].recAudio = true;
+      mediaRec.onstop = () => { recStream?.getTracks().forEach(t => t.stop()); if (chunks.length) { const blob = new Blob(chunks, { type: mediaRec.mimeType || "audio/mp4" }); S.recUrl[who] = URL.createObjectURL(blob); S.recBlob = S.recBlob || {}; S.recBlob[who] = blob; S.r[who].recAudio = true; keepAudio(who, blob);
           if (!recLive.trim()) transcribeFor(who, blob); } render(); };
       mediaRec.start(1000); } catch { mediaRec = null; } }
   if (NSR) {
@@ -1309,14 +1311,9 @@ function carPDF(doc, x, y, sel, C) {
   doc.setFontSize(5); doc.setTextColor(110, 118, 132); doc.text("fronte", x + 8, y - 3, { align: "center" });
 }
 async function downloadPDF() {
-  const r = S.r; let doc;
-  toast("Compilo il modulo ufficiale…", 1500);
+  const r = S.r; toast("Compilo il modulo ufficiale…", 1500);
   let bytes; try { bytes = await finalPDFBytes(r); } catch (e) { console.error(e); toast("PDF non generato: libreria non caricata"); return; }
-  const name = `${r.id}.pdf`, blob = new Blob([bytes], { type: "application/pdf" });
-  if (CAP.downloads) { try { await CAP.downloads.save({ filename: name, data: blob }); toast("CID salvato"); } catch (e) { if (e?.code !== "cancelled") toast("Download annullato"); } return; }
-  try { const file = new File([blob], name, { type: "application/pdf" });
-    if (navigator.canShare?.({ files: [file] })) { await navigator.share({ files: [file], title: "CID " + r.id }); return; } } catch (e) { if (e?.name === "AbortError") return; }
-  try { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); } catch { toast("Download non disponibile qui"); }
+  await saveFile(`${r.id}.pdf`, new Blob([bytes], { type: "application/pdf" }), "application/pdf");
 }
 async function sharePDF() {
   try { const blob = new Blob([await finalPDFBytes(S.r)], { type: "application/pdf" }), file = new File([blob], S.r.id + ".pdf", { type: "application/pdf" });
@@ -1476,6 +1473,80 @@ function parseDocs(txt) {
   return o;
 }
 
+/* ---------- Registrazioni salvate sul telefono ---------- */
+const audioKey = (id, who) => `cidnow.audio.${id}.${who}`;
+function keepAudio(who, blob) { try { idb.set(audioKey(S.r.id, who), blob); } catch {} }
+async function loadAudio(r) {
+  S.recBlob = {}; S.recUrl = {};
+  for (const w of ["A", "B"]) { try { const b = await idb.get(audioKey(r.id, w)); if (b) { S.recBlob[w] = b; S.recUrl[w] = URL.createObjectURL(b); } } catch {} }
+}
+
+/* ---------- Salvataggio file (PDF, ZIP) ---------- */
+async function saveFile(name, blob, type) {
+  if (CAP.downloads) { try { await CAP.downloads.save({ filename: name, data: blob }); toast("File salvato"); } catch (e) { if (e?.code !== "cancelled") toast("Download annullato"); } return; }
+  try { const file = new File([blob], name, { type });
+    if (navigator.canShare?.({ files: [file] })) { await navigator.share({ files: [file], title: name }); return; } } catch (e) { if (e?.name === "AbortError") return; }
+  try { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); } catch { toast("Download non disponibile qui"); }
+}
+
+/* ---------- ZIP (formato standard, senza compressione: foto e audio sono già compressi) ---------- */
+const CRC_T = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+const crc32 = u8 => { let c = 0xFFFFFFFF; for (let i = 0; i < u8.length; i++) c = CRC_T[(c ^ u8[i]) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; };
+async function makeZip(files) {
+  const enc = new TextEncoder(), parts = [], central = []; let off = 0;
+  const d = new Date(), dt = ((d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1)) & 0xFFFF, dd = (((d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate()) & 0xFFFF;
+  for (const f of files) {
+    const name = enc.encode(f.name), data = f.data instanceof Uint8Array ? f.data : typeof f.data === "string" ? enc.encode(f.data) : new Uint8Array(await f.data.arrayBuffer());
+    const crc = crc32(data), h = new DataView(new ArrayBuffer(30));
+    h.setUint32(0, 0x04034b50, true); h.setUint16(4, 20, true); h.setUint16(6, 0x0800, true); h.setUint16(8, 0, true); h.setUint16(10, dt, true); h.setUint16(12, dd, true);
+    h.setUint32(14, crc, true); h.setUint32(18, data.length, true); h.setUint32(22, data.length, true); h.setUint16(26, name.length, true); h.setUint16(28, 0, true);
+    parts.push(h, name, data);
+    const c = new DataView(new ArrayBuffer(46));
+    c.setUint32(0, 0x02014b50, true); c.setUint16(4, 20, true); c.setUint16(6, 20, true); c.setUint16(8, 0x0800, true); c.setUint16(10, 0, true); c.setUint16(12, dt, true); c.setUint16(14, dd, true);
+    c.setUint32(16, crc, true); c.setUint32(20, data.length, true); c.setUint32(24, data.length, true); c.setUint16(28, name.length, true); c.setUint32(42, off, true);
+    central.push(c, name); off += 30 + name.length + data.length;
+  }
+  const csize = central.reduce((a, x) => a + x.byteLength, 0), e = new DataView(new ArrayBuffer(22));
+  e.setUint32(0, 0x06054b50, true); e.setUint16(8, files.length, true); e.setUint16(10, files.length, true); e.setUint32(12, csize, true); e.setUint32(16, off, true);
+  return new Blob([...parts, ...central, e], { type: "application/zip" });
+}
+const slug = s => norm(s).replace(/\s+/g, "-") || "foto";
+const dataUrlBytes = u => { const bin = atob(u.split(",")[1]), a = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i); return a; };
+const audioExt = t => /mp4|m4a|aac/.test(t) ? "m4a" : /webm/.test(t) ? "webm" : /wav/.test(t) ? "wav" : /mpeg|mp3/.test(t) ? "mp3" : /ogg/.test(t) ? "ogg" : "audio";
+async function downloadZip() {
+  const r = S.r; toast("Preparo lo ZIP con PDF, foto e registrazioni…", 2500);
+  try {
+    const files = [{ name: `${r.id}/${r.id}.pdf`, data: new Uint8Array(await finalPDFBytes(r)) }];
+    r.photos.forEach((p, i) => files.push({ name: `${r.id}/foto/${pad2(i + 1)}-${slug(SLOTS.find(s => s.k === p.slot)?.l || p.slot)}.jpg`, data: dataUrlBytes(p.src) }));
+    if (!S.recBlob || Object.keys(S.recBlob).length === 0) await loadAudio(r);
+    for (const w of ["A", "B"]) {
+      const b = S.recBlob?.[w]; if (b) files.push({ name: `${r.id}/rec/registrazione-conducente-${w}.${audioExt(b.type || "")}`, data: b });
+      if (r[w].rec) files.push({ name: `${r.id}/rec/trascrizione-conducente-${w}.txt`, data: `Dichiarazione del conducente ${w} - ${r[w].nome} ${r[w].cognome}\nCID ${r.id} del ${fmtDate(r.data)} ore ${r.ora}\n\n${r[w].rec}\n` });
+      if (r["firma" + w]) files.push({ name: `${r.id}/firme/firma-conducente-${w}.png`, data: dataUrlBytes(r["firma" + w]) });
+    }
+    files.push({ name: `${r.id}/grafico-incidente.png`, data: dataUrlBytes(r.schizzoManual && r.schizzo ? r.schizzo : sketchDataUrl(r)) });
+    const strip = o => JSON.parse(JSON.stringify(o, (k, v) => typeof v === "string" && v.startsWith("data:") ? `[file allegato]` : v));
+    files.push({ name: `${r.id}/dati-cid.json`, data: JSON.stringify(strip(r), null, 2) });
+    await saveFile(`${r.id}.zip`, await makeZip(files), "application/zip");
+  } catch (e) { console.error(e); toast("ZIP non creato: riprova"); }
+}
+
+/* ---------- Eliminazione di un CID ---------- */
+function askDelete(id) {
+  const r = S.reports.find(x => x.id === id) || (S.r?.id === id ? S.r : null); if (!r) return;
+  openModal(`<h2>Eliminare questo CID?</h2>
+    <p class="muted" style="margin:0">${esc(r.id)} · ${esc(r.tipo || "Incidente")} del ${esc(fmtDate(r.data))}${r.B.targa ? " con " + esc(r.B.targa) : ""}.</p>
+    <div class="banner warn"><span class="ic">!</span><div>Vengono cancellati dal telefono il modulo, le foto, le firme e le registrazioni. Non si può annullare. ${r.status === "completo" ? "Se ti servirà, scarica prima lo ZIP." : ""}</div></div>
+    ${r.status === "completo" ? `<button class="btn block" data-act="zipThen" data-id="${esc(id)}">Scarica prima lo ZIP</button>` : ""}
+    <div class="grid2"><button class="btn" data-act="closeModal">Annulla</button><button class="btn danger" data-act="doDelete" data-id="${esc(id)}">Elimina</button></div>`);
+}
+async function doDelete(id) {
+  S.reports = S.reports.filter(x => x.id !== id); await persist("cidnow.reports", S.reports);
+  if (S.r?.id === id) { if (S.r.status === "bozza") unpersist("cidnow.draft"); S.r = null; }
+  for (const w of ["A", "B"]) { try { await idb.del(audioKey(id, w)); } catch {} }
+  S.recBlob = {}; S.recUrl = {}; closeModal(); S.view = "home"; render(); window.scrollTo(0, 0); toast("CID eliminato");
+}
+
 /* ---------- Utilità date ---------- */
 function fmtDate(v) { if (!v) return ""; const m = String(v).match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? `${m[3]}/${m[2]}/${m[1]}` : v; }
 function fmtDateTime(v) { if (!v) return ""; const d = new Date(v); return `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${d.getFullYear()} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`; }
@@ -1489,6 +1560,7 @@ function closeModal() { $("#modal").hidden = true; $("#modal").innerHTML = ""; }
 function go(step) { if (S.rec.who) stopRec(); S.step = Math.max(0, Math.min(6, step)); render(); window.scrollTo(0, 0); }
 function startWizard(fresh) {
   if (fresh || !S.r || S.r.status !== "bozza") S.r = newReport();
+  S.asr = {}; loadAudio(S.r).then(() => S.view === "wizard" && S.step === 4 && render());
   S.view = "wizard"; S.step = 0; render(); window.scrollTo(0, 0);
   if (S.gps.state === "ok") { Object.assign(S.r.luogo, { lat: S.gps.lat, lon: S.gps.lon, acc: S.gps.acc, fonte: "gps" }); reverseGeocode(S.gps.lat, S.gps.lon); }
   else if (S.gps.state !== "denied") requestGPS();
@@ -1497,7 +1569,7 @@ document.addEventListener("click", e => {
   const el = e.target.closest("[data-act]"); if (!el) return;
   const a = el.dataset.act, r = S.r;
   switch (a) {
-    case "home": if (S.rec.who) stopRec(); S.view = "home"; if (r?.status === "completo") S.r = null; render(); window.scrollTo(0, 0); break;
+    case "home": if (S.rec.who) stopRec(); S.view = "home"; if (r?.status === "completo") { S.r = null; idb.get("cidnow.draft").then(d => { if (d && !S.r) { S.r = d; render(); } }).catch(() => {}); } render(); window.scrollTo(0, 0); break;
     case "profile": S.pdraft = Object.assign(emptyParty(), S.profile || {}); S.pdraft._auto = {}; S.view = "profile"; render(); window.scrollTo(0, 0); setTimeout(() => updateCF("P"), 0); break;
     case "exampleProfile": S.profile = { ...EXAMPLE_A }; S.profile.cf = cfCompute(S.profile) || ""; S.profile._cfAuto = true; store.set("cidnow.profile", S.profile); render(); toast("Profilo di esempio caricato"); break;
     case "fillExampleP": Object.assign(S.pdraft, EXAMPLE_A); S.pdraft._cfAuto = true; render(); updateCF("P"); break;
@@ -1532,7 +1604,11 @@ document.addEventListener("click", e => {
     case "myqr": showMyQR(); break;
     case "closeModal": closeModal(); break;
     case "closeModalBg": if (e.target === el) closeModal(); break;
-    case "openReport": S.r = S.reports[+el.dataset.i]; S.view = "wizard"; S.step = 6; render(); window.scrollTo(0, 0); break;
+    case "openReport": S.r = S.reports[+el.dataset.i]; S.view = "wizard"; S.step = 6; S.asr = {}; loadAudio(S.r).then(render); render(); window.scrollTo(0, 0); break;
+    case "askDelete": askDelete(el.dataset.id); break;
+    case "doDelete": doDelete(el.dataset.id); break;
+    case "zip": downloadZip(); break;
+    case "zipThen": { const id = el.dataset.id; closeModal(); const prev = S.r; S.r = S.reports.find(x => x.id === id) || S.r; downloadZip().finally(() => { S.r = prev; setTimeout(() => askDelete(id), 600); }); break; }
   }
 });
 document.addEventListener("change", async e => {
@@ -1545,7 +1621,7 @@ document.addEventListener("change", async e => {
   else if (a === "scanQR") scanQR(files[0]);
   else if (a === "scanB") scanDocs("B", files);
   else if (a === "scanP") scanDocs("P", files);
-  else if (a === "audio") { const who = el.dataset.who; S.recUrl = S.recUrl || {}; S.recUrl[who] = URL.createObjectURL(files[0]); S.recBlob = S.recBlob || {}; S.recBlob[who] = files[0]; S.r[who].recAudio = true; transcribeFor(who, files[0]); }
+  else if (a === "audio") { const who = el.dataset.who; S.recUrl = S.recUrl || {}; S.recUrl[who] = URL.createObjectURL(files[0]); S.recBlob = S.recBlob || {}; S.recBlob[who] = files[0]; S.r[who].recAudio = true; keepAudio(who, files[0]); transcribeFor(who, files[0]); }
 });
 
 render();
