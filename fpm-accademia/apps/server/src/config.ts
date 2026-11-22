@@ -6,6 +6,8 @@ const EnvSchema = z.object({
   PORT: z.coerce.number().int().default(8787),
   WEB_ORIGIN: z.string().url().default('http://localhost:5173'),
   PAYMENT_PROVIDER: z.enum(['mock', 'apple', 'google', 'stripe']).default('mock'),
+  /** Solo sviluppo/test automatici: moltiplica i limiti di frequenza. Ignorato in produzione. */
+  RATE_LIMIT_SCALE: z.coerce.number().min(1).max(1000).default(1),
 });
 
 export type Config = z.infer<typeof EnvSchema>;
@@ -17,5 +19,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     const keys = parsed.error.issues.map((i) => i.path.join('.')).join(', ');
     throw new Error(`Configurazione non valida o mancante: ${keys}. Vedi .env.example`);
   }
-  return parsed.data;
+  const cfg = parsed.data;
+  if (cfg.NODE_ENV === 'production') cfg.RATE_LIMIT_SCALE = 1;
+  return cfg;
 }

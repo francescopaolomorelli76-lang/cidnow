@@ -6,7 +6,7 @@ import { migrate } from './migrate.js';
 const config = loadConfig();
 const db = createPool(config.DATABASE_URL);
 await migrate(db);
-const app = await buildApp(db, config);
+const app = await buildApp(db, config, { rateLimitScale: config.RATE_LIMIT_SCALE });
 if (config.PAYMENT_PROVIDER === 'mock' && config.NODE_ENV !== 'production') {
   app.log.warn('PaymentProvider MOCK attivo: gli acquisti della licenza sono SIMULATI (solo sviluppo).');
 }

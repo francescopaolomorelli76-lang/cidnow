@@ -2,8 +2,11 @@ import { expect, test, type Browser, type Page } from '@playwright/test';
 
 const PASSWORD = 'password-e2e-sicura';
 const uid = () => Math.random().toString(36).slice(2, 10);
-const shot = (page: Page, name: string) =>
-  page.screenshot({ path: `docs/screenshots/${test.info().project.name}-${name}.png`, fullPage: true });
+const shot = async (page: Page, name: string) => {
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.waitForTimeout(150);
+  return page.screenshot({ path: `docs/screenshots/${test.info().project.name}-${name}.png`, fullPage: !name.includes('lesson-room') });
+};
 
 async function registerVia(browser: Browser, role: 'teacher' | 'student', name: string) {
   const ctx = await browser.newContext();
@@ -24,7 +27,11 @@ async function registerVia(browser: Browser, role: 'teacher' | 'student', name: 
 test('home: logo, brand, two roles, footer', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('img', { name: 'Logo FPM' }).first()).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Accademia Musicale Online' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Scegli il tuo strumento' })).toBeVisible();
+  // Una card fotografica per ogni disciplina.
+  for (const id of ['canto', 'pianoforte', 'chitarra-basso', 'batteria', 'archi', 'fiati', 'teoria']) {
+    await expect(page.getByTestId(`discipline-${id}`)).toBeVisible();
+  }
   await expect(page.getByTestId('role-teacher')).toBeVisible();
   await expect(page.getByTestId('role-student')).toBeVisible();
   await expect(page.locator('footer')).toContainText('© 2026 FP Morelli — Web Design Tech');
@@ -40,6 +47,7 @@ test('teacher invites, student requests, teacher approves, then revokes', async 
   // Disciplina: cambia strumenti e copertina, non i colori.
   await teacher.goto('/discipline');
   await teacher.getByTestId('discipline-canto').click();
+  await expect(teacher).toHaveURL(/\/discipline\/canto$/);
   await teacher.getByTestId('save-discipline').click();
   await expect(teacher.getByRole('status')).toContainText('Disciplina salvata');
   await shot(teacher, '02-discipline');
@@ -65,6 +73,8 @@ test('teacher invites, student requests, teacher approves, then revokes', async 
 
   await teacher.reload();
   await expect(teacher.getByTestId('pending-request')).toContainText('Giulia');
+  // La campanella mostra il numero reale di richieste in attesa.
+  await expect(teacher.getByTestId('notif-count')).toHaveText('1');
   await teacher.getByTestId('pending-request').getByRole('button', { name: 'Approva' }).click();
   await expect(teacher.getByTestId('student-row')).toContainText('Giulia');
 
@@ -125,4 +135,54 @@ test('protected areas redirect anonymous users to login', async ({ page }) => {
   await expect(page).toHaveURL(/\/accedi/);
   const res = await page.request.get('/api/teacher/students');
   expect(res.status()).toBe(401);
+});
+
+test('lesson room (canto): local camera, tuner, metronome, piano; remote clearly not connected', async ({ browser }) => {
+  const page = await registerVia(browser, 'teacher', 'Prof. Canto');
+  await page.goto('/lezione?d=canto');
+  await expect(page.getByRole('heading', { name: 'Sezione Canto' })).toBeVisible();
+  await expect(page.getByText('In attesa dell’allievo')).toBeVisible();
+  await expect(page.getByText('Anteprima della stanza lezione.')).toBeVisible();
+  await page.getByTestId('room-start').click();
+  await expect
+    .poll(() => page.locator('.tile.main video').evaluate((v: HTMLVideoElement) => v.videoWidth))
+    .toBeGreaterThan(0);
+  await expect(page.getByTestId('tuner')).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Respirazione' })).toBeVisible();
+  await page.getByRole('button', { name: 'Accelera' }).click();
+  await expect(page.getByTestId('bpm')).toHaveText('♩ = 81');
+  await page.getByRole('button', { name: 'Microfono', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Muto', exact: true })).toBeVisible();
+  await expect(page.getByLabel('Pianoforte virtuale')).toBeVisible();
+  // Funzioni non pronte: visibili ma disattivate, non spacciate per funzionanti.
+  await expect(page.getByRole('button', { name: /Condividi/ })).toBeDisabled();
+  await expect(page.getByRole('button', { name: /Riproduci base/ })).toBeDisabled();
+  await shot(page, '10-lesson-room-canto');
+});
+
+test('lesson room (batteria): multicam layout only as planned preview', async ({ browser }) => {
+  const page = await registerVia(browser, 'student', 'Batterista');
+  await page.goto('/lezione?d=batteria');
+  await expect(page.getByRole('heading', { name: 'Batteria e Percussioni' })).toBeVisible();
+  const multicam = page.getByRole('region', { name: 'Regia multicamera (opzionale)' });
+  await expect(multicam.getByText('Pianificato')).toBeVisible();
+  await page.getByTestId('room-start').click();
+  await multicam.getByRole('radio', { name: /4 camere/ }).click();
+  await expect(page.locator('.stage.multicam .tile')).toHaveCount(4); // 4 viste; il docente è in un riquadro separato
+  await expect(page.locator('.remote-strip')).toContainText('In attesa del docente');
+  await expect(page.getByText('Camera aggiuntiva')).toHaveCount(3);
+  await shot(page, '11-lesson-room-batteria');
+});
+
+test('lesson room for other disciplines (violino/archi, fiati)', async ({ browser }) => {
+  const page = await registerVia(browser, 'teacher', 'Prof. Archi');
+  await page.goto('/lezione?d=archi');
+  await expect(page.getByRole('region', { name: 'Accordatore' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Spartito' })).toBeVisible();
+  await page.getByTestId('room-start').click();
+  await expect(page.getByText('✓ Dispositivi pronti')).toBeVisible();
+  await shot(page, '12-lesson-room-archi');
+  await page.goto('/lezione?d=fiati');
+  await expect(page.getByRole('heading', { name: 'Fiati' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Respirazione' })).toBeVisible();
 });

@@ -1,7 +1,7 @@
 /*
  * FPM design tokens — identità unica nero profondo + oro metallizzato.
  * Nessuna palette per disciplina: la disciplina cambia strumenti e copertina, non i colori.
- * Font di sistema: nessun font esterno (niente richieste a terzi = meno dati personali trasmessi).
+ * Font OFL inclusi nel bundle (@fontsource): nessuna richiesta a servizi di terzi.
  */
 :root {
   color-scheme: dark;
@@ -31,14 +31,19 @@
   --danger: #ef8a7e;
   --info: #a9c3e8;
 
-  --font-display: 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif;
-  --font-ui: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-display: 'Cormorant Garamond', 'Iowan Old Style', Palatino, Georgia, serif;
+  --font-caps: 'Cinzel', 'Trajan Pro', 'Cormorant Garamond', Georgia, serif;
+  --font-script: 'Great Vibes', 'Snell Roundhand', cursive;
+  --font-ui: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
 
   --radius-sm: 8px;
   --radius: 14px;
   --radius-lg: 22px;
   --shadow-gold: 0 0 0 1px var(--line-strong), 0 10px 40px -18px rgba(212, 167, 63, 0.35);
   --focus: 0 0 0 3px var(--bg), 0 0 0 5px var(--gold-400);
+  --frame: 1px solid rgba(212, 167, 63, 0.42);
+  --glow: 0 0 0 1px rgba(224, 187, 92, 0.18), 0 0 24px -6px rgba(224, 187, 92, 0.35);
+  --gold-line: linear-gradient(90deg, transparent, var(--gold-600) 15%, var(--gold-200) 50%, var(--gold-600) 85%, transparent);
 
   --space-1: 4px;
   --space-2: 8px;

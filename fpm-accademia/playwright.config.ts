@@ -26,7 +26,7 @@ export default defineConfig({
     {
       command: 'npm run start -w @fpm/server',
       url: 'http://127.0.0.1:8787/api/health',
-      env: { DATABASE_URL: E2E_DB, NODE_ENV: 'development', PAYMENT_PROVIDER: 'mock', PORT: '8787' },
+      env: { DATABASE_URL: E2E_DB, NODE_ENV: 'development', PAYMENT_PROVIDER: 'mock', PORT: '8787', RATE_LIMIT_SCALE: '20' },
       reuseExistingServer: false,
       timeout: 60_000,
     },

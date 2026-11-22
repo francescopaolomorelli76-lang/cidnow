@@ -89,6 +89,12 @@ describe('permanent license (mock provider in development)', () => {
     expect((await s.post('/api/teacher/license/purchase')).statusCode).toBe(403);
   });
 
+  it('rate-limit scale cannot be raised in production', async () => {
+    const { loadConfig } = await import('../src/config.js');
+    const cfg = loadConfig({ NODE_ENV: 'production', DATABASE_URL: 'postgres://x@localhost/y', RATE_LIMIT_SCALE: '50' });
+    expect(cfg.RATE_LIMIT_SCALE).toBe(1);
+  });
+
   it('mock provider is disabled in production', async () => {
     const prod = await setupApp({}, { NODE_ENV: 'production' });
     try {

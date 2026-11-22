@@ -2,7 +2,7 @@
 
 Web app responsive/PWA per lezioni di musica dal vivo: un docente e i suoi allievi, collegati in modo privato tramite invito e approvazione. Identità unica nero profondo + oro, logo FPM originale.
 
-> Versione 0.1.0 — **anteprima di sviluppo**. Fasi A e B complete, Smart Setup (Fase C) dimostrativo. Videolezione, MIDI remoto, basi sincronizzate e multicamera batteria **non ancora realizzati**. Stato dettagliato: pagina *Informazioni* dell'app e `docs/roadmap.md`.
+> Versione 0.2.0 — **anteprima di sviluppo**. Fasi A e B complete, Smart Setup (Fase C) dimostrativo, nuova grafica e stanza lezione con strumenti locali. Collegamento audio/video tra docente e allievo, MIDI remoto, basi sincronizzate e multicamera batteria **non ancora realizzati**. Stato dettagliato: pagina *Informazioni* dell'app e `docs/roadmap.md`.
 
 ## Requisiti
 - Node.js ≥ 22.12 e npm
@@ -44,13 +44,16 @@ Utenti demo: `docente@demo.local` e `allievo@demo.local`, password `demo-passwor
 ## Risultati ottenuti (22/11/2026, in questo ambiente Linux con Chromium headless)
 
 - `npm run typecheck` ✅ · `npm run lint` ✅ · `npm run build` ✅
-- `npm test` ✅ **49 test**: shared 6, server 33 (PostgreSQL 16 reale), web 10
-- `npm run test:e2e` ✅ **10 test** (5 scenari × desktop e mobile): home, percorso invito→richiesta→approvazione→lezione→revoca tra due browser, Smart Setup con microfono/camera **finti** di Chromium, Informazioni, redirect/401 per anonimi
+- `npm test` ✅ **62 test**: shared 6, server 34 (PostgreSQL 16 reale), web 22 (MIDI, rete, rilevamento altezza note, metronomo)
+- `npm run test:e2e` ✅ **16 test** (8 scenari × desktop e mobile): home con griglia strumenti, percorso invito→richiesta→approvazione→lezione→revoca tra due browser, Smart Setup e stanza lezione (canto, batteria, archi, fiati) con microfono/camera **finti** di Chromium, Informazioni, redirect/401 per anonimi
 - Screenshot in `docs/screenshots/`
 
 **Non verificato**: nessuna prova su iPhone/iPad/Android reali, interfacce audio o tastiere MIDI fisiche, né su reti reali diverse. Nessun test WAN.
 
 ## Cosa c'è
+
+- **Grafica 0.2** sul modello delle anteprime del committente: barra laterale con logo, intestazione oro «Accademia Musicale Online FPM — La musica, sempre con te», griglia «Scegli il tuo strumento» con foto, stanza lezione per disciplina. Font Cormorant Garamond, Cinzel, Great Vibes e Inter (licenza OFL, inclusi nell'app). Le foto delle card (`apps/web/public/covers`) sono **ritagli a bassa risoluzione dalle anteprime fornite**: da sostituire con foto ad alta risoluzione di cui si hanno i diritti.
+- **Stanza lezione** (`/lezione?d=canto|pianoforte|chitarra-basso|batteria|archi|fiati|teoria`): videocamera e microfono reali del dispositivo, muto/video, accordatore/intonazione dal microfono, metronomo, esercizi di respirazione, livello audio, scelta dispositivi, apertura di uno spartito locale, pianoforte a schermo. Collegamento con l'altra persona, condivisione schermo, registrazione, basi sincronizzate e multicamera batteria sono **visibili ma disattivati e marcati come pianificati**.
 
 - **Brand**: `brand/logo-fpm-original.png` (originale, intatto) e versione oro derivata con `scripts/derive_gold_logo.py` (stessa sagoma pixel per pixel, cambia solo il colore). Footer «© 2026 FP Morelli — Web Design Tech» su ogni schermata.
 - **Ruoli e accesso**: registrazione/login (scrypt, cookie httpOnly, rate limit), autorizzazione **lato server** su ogni API.

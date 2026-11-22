@@ -4,8 +4,8 @@ import { Logo } from '../components/Brand.js';
 import { ErrorBox, StatusBadge } from '../components/Layout.js';
 import { ApiError, get, post } from '../lib/api.js';
 import { useSession } from '../session.js';
+import { APP_VERSION } from '../version.js';
 
-export const APP_VERSION = '0.1.0';
 
 export function Info() {
   const { me, refresh } = useSession();
