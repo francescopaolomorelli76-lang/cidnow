@@ -1,5 +1,6 @@
 import { BRAND } from '@fpm/shared';
 import { APP_VERSION } from '../version.js';
+import { asset } from '../demo/env.js';
 
 /**
  * Logo FPM: versione oro derivata dal PNG originale «Logo neon FpM con volto barbuto.png»
@@ -8,7 +9,7 @@ import { APP_VERSION } from '../version.js';
 export function Logo({ size = 128, className }: { size?: 128 | 256 | 512; className?: string }) {
   return (
     <img
-      src={`/brand/logo-fpm-gold-${size}.png`}
+      src={asset(`brand/logo-fpm-gold-${size}.png`)}
       alt="Logo FPM"
       className={className}
       width={size}
@@ -22,7 +23,7 @@ export function Footer() {
   return (
     <footer className="app-footer">
       <span className="foot-brand">
-        <img src="/brand/logo-fpm-gold-128.png" alt="" aria-hidden="true" width={22} height={28} />
+        <img src={asset('brand/logo-fpm-gold-128.png')} alt="" aria-hidden="true" width={22} height={28} />
         {BRAND.appName} FPM
       </span>
       <span className="foot-right">

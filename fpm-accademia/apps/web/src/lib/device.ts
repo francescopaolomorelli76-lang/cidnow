@@ -48,6 +48,9 @@ export function looksBluetooth(label: string): boolean {
 
 /** Traduce gli errori di getUserMedia in messaggi comprensibili. */
 export function mediaErrorMessage(err: unknown): string {
+  if (import.meta.env.VITE_DEMO === '1') {
+    return 'Nella demo online videocamera e microfono non sono disponibili (limite della pagina di anteprima). Funzionano nell’app vera.';
+  }
   const name = (err as { name?: string })?.name;
   switch (name) {
     case 'NotAllowedError':

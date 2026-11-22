@@ -5,6 +5,7 @@ import { DisciplineIcon } from '../components/Icons.js';
 import { ErrorBox, StatusBadge } from '../components/Layout.js';
 import { ApiError, get, post } from '../lib/api.js';
 import { useSession } from '../session.js';
+import { confirmAction } from '../demo/env.js';
 
 interface LinkState { id: string; status: 'pending' | 'approved' | 'rejected' | 'revoked'; teacherName: string }
 interface Teacher { displayName: string; discipline: DisciplineId | null; coverPreset: string }
@@ -55,7 +56,7 @@ export function StudentDashboard() {
   }
 
   async function leave(msg: string) {
-    if (!confirm(msg)) return;
+    if (!confirmAction(msg)) return;
     await post('/api/student/link/leave');
     await load();
   }

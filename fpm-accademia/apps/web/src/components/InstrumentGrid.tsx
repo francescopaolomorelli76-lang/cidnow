@@ -1,6 +1,7 @@
 import { Link } from 'react-router';
 import { DISCIPLINES, type DisciplineId } from '@fpm/shared';
 import { UiIcon } from './UiIcon.js';
+import { asset } from '../demo/env.js';
 
 /**
  * Foto delle copertine: ritagli dalle anteprime grafiche fornite dal committente
@@ -8,13 +9,13 @@ import { UiIcon } from './UiIcon.js';
  * risoluzione di cui si possiedono i diritti.
  */
 export const COVER: Record<DisciplineId, string> = {
-  canto: '/covers/canto.jpg',
-  pianoforte: '/covers/pianoforte.jpg',
-  'chitarra-basso': '/covers/chitarra-basso.jpg',
-  batteria: '/covers/batteria.jpg',
-  archi: '/covers/archi.jpg',
-  fiati: '/covers/fiati.jpg',
-  teoria: '/covers/teoria.jpg',
+  canto: asset('covers/canto.jpg'),
+  pianoforte: asset('covers/pianoforte.jpg'),
+  'chitarra-basso': asset('covers/chitarra-basso.jpg'),
+  batteria: asset('covers/batteria.jpg'),
+  archi: asset('covers/archi.jpg'),
+  fiati: asset('covers/fiati.jpg'),
+  teoria: asset('covers/teoria.jpg'),
 };
 
 /** Titolo su due righe come nelle anteprime grafiche. */

@@ -8,6 +8,7 @@ import { deviceKey, loadLocalPrefs, looksBluetooth, mediaErrorMessage, saveLocal
 import { midiSupport, noteName, parseMidiMessage } from '../lib/midi.js';
 import { browserConnectionHint, measureServerRtt, verdict, type NetStats } from '../lib/net.js';
 import { useSession } from '../session.js';
+import { IS_DEMO } from '../demo/env.js';
 
 const STEPS = ['Benvenuto', 'Microfono', 'Cuffie', 'Videocamera', 'MIDI', 'Rete', 'Riepilogo'] as const;
 type ConnType = 'wifi' | 'ethernet' | 'cellular' | 'hotspot' | 'unknown';
@@ -424,7 +425,8 @@ function NetStep({ choices, update }: StepProps) {
       </div>
       {tip && <div className="alert info">{tip}</div>}
       {hint && <p className="dim">Il browser indica: {hint} (informazione indicativa).</p>}
-      <button className="btn primary" onClick={run} disabled={busy} data-testid="net-run">{busy ? 'Misura in corso…' : 'Misura la connessione'}</button>
+      {IS_DEMO && <div className="alert warn">Nella demo online non c’è un server: la misura della connessione funziona solo nell’app vera.</div>}
+      <button className="btn primary" onClick={run} disabled={busy || IS_DEMO} data-testid="net-run">{busy ? 'Misura in corso…' : 'Misura la connessione'}</button>
       {choices.net && (
         <div className="stack" role="status" data-testid="net-result">
           <p>

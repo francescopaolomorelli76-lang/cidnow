@@ -1,6 +1,6 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router';
+import { BrowserRouter, MemoryRouter, Navigate, Route, Routes } from 'react-router';
 // Font con licenza libera (OFL), inclusi nell'app: nessuna richiesta a servizi esterni.
 import '@fontsource/cormorant-garamond/latin-600.css';
 import '@fontsource/cormorant-garamond/latin-700.css';
@@ -22,12 +22,20 @@ import { TeacherDashboard } from './pages/TeacherDashboard.js';
 import { StudentDashboard } from './pages/StudentDashboard.js';
 import { SmartSetup } from './pages/SmartSetup.js';
 import { Info } from './pages/Info.js';
+import { IS_DEMO } from './demo/env.js';
+import { DemoBanner } from './demo/DemoBanner.js';
+import { installMockApi } from './demo/mockApi.js';
+
+// Demo online: niente server, API simulata nel browser e navigazione interna (la pagina ospite non gestisce i percorsi).
+if (IS_DEMO) installMockApi();
+const Router = IS_DEMO ? MemoryRouter : BrowserRouter;
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <BrowserRouter>
+    <Router>
       <SessionProvider>
         <Layout>
+          {IS_DEMO && <DemoBanner />}
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/accedi" element={<Auth />} />
@@ -42,6 +50,6 @@ createRoot(document.getElementById('root')!).render(
           </Routes>
         </Layout>
       </SessionProvider>
-    </BrowserRouter>
+    </Router>
   </StrictMode>,
 );

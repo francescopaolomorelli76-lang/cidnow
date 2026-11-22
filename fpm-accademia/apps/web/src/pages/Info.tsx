@@ -4,6 +4,7 @@ import { Logo } from '../components/Brand.js';
 import { ErrorBox, StatusBadge } from '../components/Layout.js';
 import { ApiError, get, post } from '../lib/api.js';
 import { useSession } from '../session.js';
+import { IS_DEMO, confirmAction } from '../demo/env.js';
 import { APP_VERSION } from '../version.js';
 
 
@@ -78,7 +79,7 @@ function PrivacyTools({ onDeleted }: { onDeleted: () => Promise<void> }) {
     URL.revokeObjectURL(url);
   }
   async function del() {
-    if (!confirm('Eliminare definitivamente account e dati? L’operazione non si può annullare.')) return;
+    if (!confirmAction('Eliminare definitivamente account e dati? L’operazione non si può annullare.')) return;
     setError(null);
     try {
       await post('/api/me/delete', { password });
@@ -91,7 +92,7 @@ function PrivacyTools({ onDeleted }: { onDeleted: () => Promise<void> }) {
     <section className="card stack">
       <h2>Privacy e dati</h2>
       <p className="dim">Informativa e termini sono bozze da validare con un consulente privacy prima della pubblicazione.</p>
-      <div><button className="btn" onClick={exportData}>Scarica i miei dati (JSON)</button></div>
+      {!IS_DEMO && <div><button className="btn" onClick={exportData}>Scarica i miei dati (JSON)</button></div>}
       <div className="field" style={{ maxWidth: 360 }}>
         <label htmlFor="delpw">Elimina account — conferma con la password</label>
         <input id="delpw" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />

@@ -448,3 +448,7 @@ video.preview { width: 100%; max-width: 520px; aspect-ratio: 16 / 9; background:
 @media (prefers-reduced-motion: reduce) {
   *, .breath-circle { transition: none !important; animation: none !important; }
 }
+
+/* Banner della demo online */
+.demo-banner { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center; justify-content: space-between; margin-bottom: var(--space-4); padding: var(--space-3) var(--space-4); border: 1px dashed var(--gold-500); border-radius: 14px; background: rgba(224, 187, 92, 0.06); font-size: 0.9rem; }
+.demo-banner p { margin: 0; flex: 1 1 320px; color: var(--text-muted); }

@@ -5,6 +5,7 @@ import { DisciplineIcon } from '../components/Icons.js';
 import { ErrorBox, StatusBadge } from '../components/Layout.js';
 import { ApiError, get, post } from '../lib/api.js';
 import { useSession } from '../session.js';
+import { confirmAction } from '../demo/env.js';
 
 interface Entitlement {
   state: 'none' | 'trial-active' | 'trial-expired' | 'licensed';
@@ -199,7 +200,7 @@ export function TeacherDashboard() {
                   <button
                     className="btn small danger"
                     onClick={() => {
-                      if (confirm(`Revocare l’accesso di ${s.displayName}? Non vedrà più lezioni e materiali.`)) {
+                      if (confirmAction(`Revocare l’accesso di ${s.displayName}? Non vedrà più lezioni e materiali.`)) {
                         void act(() => post(`/api/teacher/links/${link.id}/revoke`));
                       }
                     }}

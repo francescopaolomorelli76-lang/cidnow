@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -p tsconfig.json && vite build",
+    "build:demo": "tsc -p tsconfig.json && VITE_DEMO=1 vite build --outDir dist-demo --emptyOutDir",
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run"
