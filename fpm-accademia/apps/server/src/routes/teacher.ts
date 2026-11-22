@@ -13,6 +13,7 @@ import { assertApprovedLink } from '../policy.js';
 import { formatInviteCode, newInviteCode, sha256 } from '../security/tokens.js';
 import { TRIAL_LIMITS, dbEntitlementProvider, requireActiveEntitlement } from '../entitlements/entitlements.js';
 import type { AppDeps } from '../app.js';
+import { closeRoom } from './rtc.js';
 
 const IdParams = z.object({ id: z.string().uuid() });
 const idOf = (params: unknown) => {
@@ -191,6 +192,7 @@ export async function teacherRoutes(app: FastifyInstance, deps: AppDeps) {
       [id, me.id],
     );
     if (!rowCount) throw notFound('Collegamento non trovato o già chiuso');
+    closeRoom(id); // eventuale videolezione in corso: disconnessa subito
     return { id, status: 'revoked' };
   });
 

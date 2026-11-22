@@ -91,7 +91,7 @@ export function Layout({ children }: { children: ReactNode }) {
             <div className="app-title">
               {BRAND.appName} <span className="gold-text">FPM</span>
             </div>
-            <div className="app-sub">La musica, sempre con te</div>
+            <div className="app-sub">La musica, ovunque tu sia</div>
           </div>
           <div className="top-actions">
             {me?.role === 'teacher' && (

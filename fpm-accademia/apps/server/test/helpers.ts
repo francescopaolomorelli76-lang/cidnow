@@ -4,6 +4,7 @@ import { buildApp, CSRF_HEADER, type BuildOptions } from '../src/app.js';
 import { loadConfig } from '../src/config.js';
 import { createPool, type Db } from '../src/db.js';
 import { TEST_DB_URL } from './globalSetup.js';
+import { migrate } from '../src/migrate.js';
 
 export interface Ctx {
   app: FastifyInstance;
@@ -13,6 +14,7 @@ export interface Ctx {
 export async function setupApp(opts: BuildOptions = {}, env: Record<string, string> = {}): Promise<Ctx> {
   const config = loadConfig({ NODE_ENV: 'test', DATABASE_URL: TEST_DB_URL, PAYMENT_PROVIDER: 'mock', ...env });
   const db = createPool(TEST_DB_URL);
+  if (TEST_DB_URL.startsWith('pglite:')) await migrate(db);
   const app = await buildApp(db, config, { logger: false, rateLimitScale: 1000, ...opts });
   return { app, db };
 }

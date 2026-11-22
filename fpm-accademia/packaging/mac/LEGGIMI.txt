@@ -1,0 +1,54 @@
+FPM — Accademia Musicale Online
+Simulazione reale: Mac (docente, con webcam) + iPad (allievo)
+=================================================================
+
+COSA SERVE
+- Mac con macOS recente e webcam/microfono (integrati o esterni). Consigliato: Chrome o Safari aggiornati.
+- iPad con Safari, collegato ALLA STESSA RETE Wi-Fi del Mac.
+- Cuffie (sul Mac o sull'iPad) per evitare l'eco.
+- Connessione a Internet solo al primo avvio (per scaricare Node.js ufficiale, ~45 MB).
+
+1) AVVIO SUL MAC
+- Estrai lo zip (doppio clic) e apri la cartella "FPM Accademia".
+- Doppio clic su "Avvia FPM Accademia.command".
+- macOS potrebbe bloccarlo perché non proviene dall'App Store:
+    • macOS 14 o precedenti: clic destro sul file → Apri → Apri.
+    • macOS 15 (Sequoia) o successivi: Impostazioni di Sistema → Privacy e sicurezza →
+      in fondo "Apri comunque" accanto a "Avvia FPM Accademia.command".
+- Se compare "Consentire a node di accettare connessioni in entrata?" scegli CONSENTI
+  (serve all'iPad per collegarsi al Mac).
+- Si apre il Terminale (lascialo aperto durante la prova) e poi il browser su http://localhost:8780
+
+2) DOCENTE (MAC)
+- Accedi con:  docente@demo.local  /  demo-password-123
+- Vai su "Lezione Live": nel riquadro "Collega l'iPad dell'allievo" trovi il link e il QR code.
+- Premi "Attiva videocamera e microfono" e consenti l'accesso.
+
+3) ALLIEVO (iPAD)
+- Inquadra il QR code con la Fotocamera dell'iPad, oppure scrivi in Safari il link mostrato
+  (es. https://192.168.1.20:8443).
+- Safari avvisa "Questa connessione non è privata": tocca "Mostra dettagli" → "visita questo sito web"
+  → conferma. (Il certificato è creato dal tuo Mac: il collegamento resta cifrato.)
+- Accedi con:  allievo@demo.local  /  demo-password-123
+- Apri "Lezione Live" e tocca "Attiva videocamera e microfono", poi consenti.
+- Se l'audio non parte, tocca "Tocca per attivare l'audio".
+
+COSA PROVARE
+- Video e voce nei due sensi; pulsanti Microfono/Video; scambio dei riquadri (⇄).
+- Pianoforte condiviso: le note suonate su un dispositivo suonano anche sull'altro (tasti dorati).
+- In alto: ritardo, jitter, pacchetti persi e tipo di collegamento ("diretto (rete locale)").
+- Accordatore/Intonazione, metronomo, respirazione (funzionano su ciascun dispositivo).
+
+LIMITI DI QUESTA VERSIONE
+- Funziona con Mac e iPad sulla stessa rete. Tra reti diverse (es. allievo a casa sua) serve un
+  server TURN/hosting, non incluso.
+- Latenza zero non esiste: cantare o suonare perfettamente insieme a distanza non è garantito.
+- Su iPad il MIDI fisico non è disponibile nel browser (limite di Safari): si usa il pianoforte a schermo.
+- Pagamenti: la licenza dell'account demo è SIMULATA.
+- Basi sincronizzate, registrazione, condivisione schermo e multicamera batteria: non ancora attive.
+
+DATI
+- I dati restano sul Mac: ~/Library/Application Support/FPM Accademia
+- Per ricominciare da zero: chiudi l'app e cancella quella cartella.
+
+© 2026 FP Morelli — Web Design Tech

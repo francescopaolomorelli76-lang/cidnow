@@ -2,13 +2,29 @@
 
 Web app responsive/PWA per lezioni di musica dal vivo: un docente e i suoi allievi, collegati in modo privato tramite invito e approvazione. Identità unica nero profondo + oro, logo FPM originale.
 
-> Versione 0.2.0 — **anteprima di sviluppo**. Fasi A e B complete, Smart Setup (Fase C) dimostrativo, nuova grafica e stanza lezione con strumenti locali. Collegamento audio/video tra docente e allievo, MIDI remoto, basi sincronizzate e multicamera batteria **non ancora realizzati**. Stato dettagliato: pagina *Informazioni* dell'app e `docs/roadmap.md`.
+> Versione 0.3.0 — **anteprima di sviluppo**. Novità: **videolezione reale Mac (docente) + iPad (allievo)** sulla stessa rete Wi-Fi, con pianoforte condiviso e misure di rete.
+>
+> (0.2.0) Fasi A e B complete, Smart Setup (Fase C) dimostrativo, nuova grafica e stanza lezione con strumenti locali. Collegamento audio/video tra docente e allievo, MIDI remoto, basi sincronizzate e multicamera batteria **non ancora realizzati**. Stato dettagliato: pagina *Informazioni* dell'app e `docs/roadmap.md`.
 
 ## Requisiti
 - Node.js ≥ 22.12 e npm
 - PostgreSQL 14+ in locale
 
-## Primo avvio (comandi esatti)
+## Simulazione reale Mac + iPad (senza installare nulla)
+
+```bash
+node scripts/build-mac.mjs     # crea dist-mac/FPM-Accademia-Mac.zip (~8 MB)
+```
+
+Lo zip contiene `Avvia FPM Accademia.command` (doppio clic), il server con database integrato (PGlite),
+l'app web e `LEGGIMI.txt` con le istruzioni passo-passo. Al primo avvio scarica Node.js ufficiale
+(verificato con SHA-256) se sul Mac non c'è. Il Mac apre `http://localhost:8780` (docente); l'iPad, sulla
+stessa Wi-Fi, apre `https://<IP-del-Mac>:8443` (link e QR code mostrati al docente).
+Prova automatica eseguita qui: server impacchettato + due browser Chromium (docente su http, allievo su https
+con certificato autofirmato), sia via WebSocket sia via canale HTTP di riserva → video nei due sensi,
+note del pianoforte ricevute, statistiche, uscita gestita. **Non** verificato su Mac/iPad fisici né su Safari.
+
+## Primo avvio per sviluppo (comandi esatti)
 
 ```bash
 cd fpm-accademia
@@ -44,8 +60,8 @@ Utenti demo: `docente@demo.local` e `allievo@demo.local`, password `demo-passwor
 ## Risultati ottenuti (22/11/2026, in questo ambiente Linux con Chromium headless)
 
 - `npm run typecheck` ✅ · `npm run lint` ✅ · `npm run build` ✅
-- `npm test` ✅ **62 test**: shared 6, server 34 (PostgreSQL 16 reale), web 22 (MIDI, rete, rilevamento altezza note, metronomo)
-- `npm run test:e2e` ✅ **16 test** (8 scenari × desktop e mobile): home con griglia strumenti, percorso invito→richiesta→approvazione→lezione→revoca tra due browser, Smart Setup e stanza lezione (canto, batteria, archi, fiati) con microfono/camera **finti** di Chromium, Informazioni, redirect/401 per anonimi
+- `npm test` ✅ **70 test**: shared 6, server 42 (PostgreSQL 16 reale; gli stessi 42 passano anche su PGlite con `npm run test:pglite -w @fpm/server`), web 22
+- `npm run test:e2e` ✅ **18 test** (9 scenari × desktop e mobile, inclusa una lezione dal vivo tra due browser): home con griglia strumenti, percorso invito→richiesta→approvazione→lezione→revoca tra due browser, Smart Setup e stanza lezione (canto, batteria, archi, fiati) con microfono/camera **finti** di Chromium, Informazioni, redirect/401 per anonimi
 - Screenshot in `docs/screenshots/`
 
 **Non verificato**: nessuna prova su iPhone/iPad/Android reali, interfacce audio o tastiere MIDI fisiche, né su reti reali diverse. Nessun test WAN.
@@ -65,7 +81,7 @@ Utenti demo: `docente@demo.local` e `allievo@demo.local`, password `demo-passwor
 
 ## Cosa manca (prossimi passi)
 
-1. **Fase D** — videolezione WebRTC + signaling + MIDI remoto. Serve un **server TURN** (o servizio gestito) con credenziali.
+1. **Lezioni tra reti diverse** (allievo a casa sua): serve hosting pubblico + **server TURN** con credenziali (costo della piattaforma).
 2. Verifica email e recupero password (serve un servizio di invio email).
 3. Prove manuali su dispositivi reali (iPhone Safari, Android Chrome, iPad, Mac/Windows con interfaccia audio e tastiera MIDI).
 4. Pagamenti reali: account Apple/Google (e Stripe per il web), verifica regole store.

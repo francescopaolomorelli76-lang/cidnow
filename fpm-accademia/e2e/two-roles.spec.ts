@@ -29,7 +29,7 @@ test('home: logo, brand, two roles, footer', async ({ page }) => {
   await expect(page.getByRole('img', { name: 'Logo FPM' }).first()).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Scegli il tuo strumento' })).toBeVisible();
   // Una card fotografica per ogni disciplina.
-  for (const id of ['canto', 'pianoforte', 'chitarra-basso', 'batteria', 'archi', 'fiati', 'teoria']) {
+  for (const id of ['canto', 'pianoforte', 'chitarra', 'basso', 'batteria', 'violino', 'flauto', 'archi', 'teoria']) {
     await expect(page.getByTestId(`discipline-${id}`)).toBeVisible();
   }
   await expect(page.getByTestId('role-teacher')).toBeVisible();
@@ -137,38 +137,71 @@ test('protected areas redirect anonymous users to login', async ({ page }) => {
   expect(res.status()).toBe(401);
 });
 
-test('lesson room (canto): local camera, tuner, metronome, piano; remote clearly not connected', async ({ browser }) => {
-  const page = await registerVia(browser, 'teacher', 'Prof. Canto');
+/** Collega docente e allievo via API (stessi cookie dei browser): invito → richiesta → approvazione. */
+async function linkPair(teacher: Page, student: Page) {
+  const h = { 'x-fpm-client': 'web' };
+  expect((await teacher.request.post('/api/teacher/license/purchase', { headers: h, data: {} })).ok()).toBe(true);
+  const inv = await (await teacher.request.post('/api/teacher/invitations', { headers: h, data: { expiresInHours: 24 } })).json();
+  const req = await (await student.request.post('/api/student/link-requests', { headers: h, data: { code: inv.code } })).json();
+  expect((await teacher.request.post(`/api/teacher/links/${req.id}/decision`, { headers: h, data: { decision: 'approve' } })).ok()).toBe(true);
+}
+
+test('lesson room needs an approved link before starting', async ({ browser }) => {
+  const page = await registerVia(browser, 'teacher', 'Prof. Solo');
   await page.goto('/lezione?d=canto');
-  await expect(page.getByRole('heading', { name: 'Sezione Canto' })).toBeVisible();
-  await expect(page.getByText('In attesa dell’allievo')).toBeVisible();
-  await expect(page.getByText('Anteprima della stanza lezione.')).toBeVisible();
-  await page.getByTestId('room-start').click();
-  await expect
-    .poll(() => page.locator('.tile.main video').evaluate((v: HTMLVideoElement) => v.videoWidth))
-    .toBeGreaterThan(0);
-  await expect(page.getByTestId('tuner')).toBeVisible();
-  await expect(page.getByRole('region', { name: 'Respirazione' })).toBeVisible();
-  await page.getByRole('button', { name: 'Accelera' }).click();
-  await expect(page.getByTestId('bpm')).toHaveText('♩ = 81');
-  await page.getByRole('button', { name: 'Microfono', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Muto', exact: true })).toBeVisible();
-  await expect(page.getByLabel('Pianoforte virtuale')).toBeVisible();
-  // Funzioni non pronte: visibili ma disattivate, non spacciate per funzionanti.
-  await expect(page.getByRole('button', { name: /Condividi/ })).toBeDisabled();
-  await expect(page.getByRole('button', { name: /Riproduci base/ })).toBeDisabled();
-  await shot(page, '10-lesson-room-canto');
+  await expect(page.getByText(/Nessun allievo collegato/)).toBeVisible();
+  await expect(page.getByTestId('room-start')).toBeDisabled();
+});
+
+test('LIVE lesson between teacher and student: video both ways, shared piano (MIDI), stats', async ({ browser }) => {
+  const teacher = await registerVia(browser, 'teacher', 'Prof. Canto');
+  const student = await registerVia(browser, 'student', 'Giulia');
+  await linkPair(teacher, student);
+  await teacher.goto('/lezione?d=canto');
+  await student.goto('/lezione?d=canto');
+  await expect(teacher.getByRole('heading', { name: 'Sezione Canto' })).toBeVisible();
+  await teacher.getByTestId('room-start').click();
+  await expect(teacher.getByTestId('lesson-state')).toContainText('In attesa');
+  await student.getByTestId('room-start').click();
+  for (const p of [teacher, student]) {
+    await expect(p.getByTestId('lesson-state')).toContainText('In diretta', { timeout: 20_000 });
+    await expect.poll(() => p.locator('[data-testid="remote-tile"] video').evaluate((v: HTMLVideoElement) => v.videoWidth), { timeout: 20_000 }).toBeGreaterThan(0);
+  }
+  // Il docente tiene premuto Do4: sull'allievo il tasto si accende (evento MIDI ricevuto).
+  const key = teacher.getByRole('button', { name: 'Do4', exact: true });
+  await key.scrollIntoViewIfNeeded();
+  const box = (await key.boundingBox())!;
+  await teacher.mouse.move(box.x + box.width / 2, box.y + box.height - 15);
+  await teacher.mouse.down();
+  await expect(student.getByRole('button', { name: 'Do4', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await teacher.mouse.up();
+  await expect(student.getByRole('button', { name: 'Do4', exact: true })).toHaveAttribute('aria-pressed', 'false');
+  await expect(teacher.getByTestId('lesson-stats')).toContainText('Ritardo', { timeout: 15_000 });
+  // Strumenti locali
+  await expect(teacher.getByTestId('tuner')).toBeVisible();
+  await teacher.getByRole('button', { name: 'Accelera' }).click();
+  await expect(teacher.getByTestId('bpm')).toHaveText('♩ = 81');
+  await teacher.getByRole('button', { name: 'Microfono', exact: true }).click();
+  await expect(teacher.getByRole('button', { name: 'Muto', exact: true })).toBeVisible();
+  await expect(teacher.getByRole('button', { name: /Condividi/ })).toBeDisabled();
+  await expect(teacher.getByRole('button', { name: /Riproduci base/ })).toBeDisabled();
+  await shot(teacher, '10-lesson-room-canto-live');
+  // L'allievo esce: il docente torna in attesa.
+  await student.getByRole('button', { name: 'Termina lezione' }).click();
+  await expect(teacher.getByTestId('lesson-state')).toContainText('In attesa', { timeout: 10_000 });
 });
 
 test('lesson room (batteria): multicam layout only as planned preview', async ({ browser }) => {
+  const teacher = await registerVia(browser, 'teacher', 'Prof. Batteria');
   const page = await registerVia(browser, 'student', 'Batterista');
+  await linkPair(teacher, page);
   await page.goto('/lezione?d=batteria');
   await expect(page.getByRole('heading', { name: 'Batteria e Percussioni' })).toBeVisible();
   const multicam = page.getByRole('region', { name: 'Regia multicamera (opzionale)' });
   await expect(multicam.getByText('Pianificato')).toBeVisible();
   await page.getByTestId('room-start').click();
   await multicam.getByRole('radio', { name: /4 camere/ }).click();
-  await expect(page.locator('.stage.multicam .tile')).toHaveCount(4); // 4 viste; il docente è in un riquadro separato
+  await expect(page.locator('.stage.multicam .tile')).toHaveCount(4);
   await expect(page.locator('.remote-strip')).toContainText('In attesa del docente');
   await expect(page.getByText('Camera aggiuntiva')).toHaveCount(3);
   await shot(page, '11-lesson-room-batteria');
@@ -176,6 +209,8 @@ test('lesson room (batteria): multicam layout only as planned preview', async ({
 
 test('lesson room for other disciplines (violino/archi, fiati)', async ({ browser }) => {
   const page = await registerVia(browser, 'teacher', 'Prof. Archi');
+  const student = await registerVia(browser, 'student', 'Violinista');
+  await linkPair(page, student);
   await page.goto('/lezione?d=archi');
   await expect(page.getByRole('region', { name: 'Accordatore' })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Spartito' })).toBeVisible();
@@ -183,6 +218,6 @@ test('lesson room for other disciplines (violino/archi, fiati)', async ({ browse
   await expect(page.getByText('✓ Dispositivi pronti')).toBeVisible();
   await shot(page, '12-lesson-room-archi');
   await page.goto('/lezione?d=fiati');
-  await expect(page.getByRole('heading', { name: 'Fiati' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Flauto e Fiati' })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Respirazione' })).toBeVisible();
 });

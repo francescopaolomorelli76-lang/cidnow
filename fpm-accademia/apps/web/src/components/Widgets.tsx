@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { FeatureState } from '@fpm/shared';
-import { rmsLevel } from '../lib/audio.js';
+import { audioContext, rmsLevel } from '../lib/audio.js';
 import { Metronome, BPM_MAX, BPM_MIN, clampBpm } from '../lib/metronome.js';
 import { detectPitch, frequencyToNote, type NoteReading } from '../lib/pitch.js';
 import { useAnimationFrame, type LocalMedia } from '../lib/useLocalMedia.js';
@@ -206,17 +206,37 @@ function LevelBar({ level, label, idle }: { level: number; label: string; idle?:
   );
 }
 
-export function AudioMonitor({ media, localLabel, remoteLabel }: { media: LocalMedia; localLabel: string; remoteLabel: string }) {
+export function AudioMonitor({ media, remote, localLabel, remoteLabel }: { media: LocalMedia; remote?: MediaStream | null; localLabel: string; remoteLabel: string }) {
   const [level, setLevel] = useState(0);
+  const [rLevel, setRLevel] = useState(0);
   const buf = useRef(new Float32Array(2048));
+  const rAnalyser = useRef<AnalyserNode | null>(null);
+  useEffect(() => {
+    if (!remote || remote.getAudioTracks().length === 0) {
+      rAnalyser.current = null;
+      return;
+    }
+    const ac = audioContext();
+    const src = ac.createMediaStreamSource(remote);
+    const an = ac.createAnalyser();
+    an.fftSize = 2048;
+    src.connect(an);
+    rAnalyser.current = an;
+    return () => {
+      src.disconnect();
+      rAnalyser.current = null;
+    };
+  }, [remote]);
   useAnimationFrame(() => {
     const an = media.analyser.current;
     setLevel(an && media.micOn ? rmsLevel(an, buf.current) : 0);
+    const ra = rAnalyser.current;
+    setRLevel(ra ? rmsLevel(ra, buf.current) : 0);
   }, !!media.stream);
   return (
     <Panel icon="wave" title="Monitoraggio del suono">
       <LevelBar level={level} label={localLabel} />
-      <LevelBar level={0} label={remoteLabel} idle="non collegato" />
+      <LevelBar level={rLevel} label={remoteLabel} idle={remote ? undefined : 'non collegato'} />
       <label className="check small">
         <input type="checkbox" checked={media.musicMode} onChange={(e) => media.setMusicMode(e.target.checked)} />
         <span>Modalità musica (nessun filtro sulla voce · usa le cuffie). Vale alla prossima attivazione.</span>

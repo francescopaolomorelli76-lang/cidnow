@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Link, Navigate } from 'react-router';
 import { COMMERCIAL, getDiscipline, type DisciplineId } from '@fpm/shared';
 import { DisciplineIcon } from '../components/Icons.js';
+import { IpadLink } from '../components/IpadLink.js';
 import { ErrorBox, StatusBadge } from '../components/Layout.js';
 import { ApiError, get, post } from '../lib/api.js';
 import { useSession } from '../session.js';
@@ -85,6 +86,8 @@ export function TeacherDashboard() {
       </section>
 
       <ErrorBox error={error} />
+
+      <IpadLink />
 
       {/* ---------- Prova e licenza ---------- */}
       <section className="card gold stack" aria-labelledby="lic">

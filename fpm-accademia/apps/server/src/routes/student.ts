@@ -6,6 +6,7 @@ import { AppError, conflict, forbidden, parse } from '../errors.js';
 import { approvedTeacherOf } from '../policy.js';
 import { sha256 } from '../security/tokens.js';
 import type { AppDeps } from '../app.js';
+import { closeRoom } from './rtc.js';
 
 /** Stesso messaggio per codice inesistente, scaduto, revocato o esaurito: non aiuta chi tira a indovinare. */
 const invalidCode = () => new AppError(400, 'invalid_code', 'Codice non valido, scaduto o già utilizzato');
@@ -62,11 +63,12 @@ export async function studentRoutes(app: FastifyInstance, deps: AppDeps) {
   /** L'allievo può annullare una richiesta in attesa o lasciare il docente. */
   app.post('/api/student/link/leave', async (req) => {
     const me = requireRole(req, 'student');
-    await db.query(
+    const { rows } = await db.query<{ id: string }>(
       `UPDATE teacher_student_links SET status = 'revoked', decided_at = now()
-        WHERE student_id = $1 AND status IN ('pending', 'approved')`,
+        WHERE student_id = $1 AND status IN ('pending', 'approved') RETURNING id`,
       [me.id],
     );
+    rows.forEach((r) => closeRoom(r.id));
     return { ok: true };
   });
 

@@ -1,5 +1,5 @@
 import { Link } from 'react-router';
-import { DISCIPLINES, type DisciplineId } from '@fpm/shared';
+import type { DisciplineId } from '@fpm/shared';
 import { UiIcon } from './UiIcon.js';
 import { asset } from '../demo/env.js';
 
@@ -18,46 +18,37 @@ export const COVER: Record<DisciplineId, string> = {
   teoria: asset('covers/teoria.jpg'),
 };
 
-/** Titolo su due righe come nelle anteprime grafiche. */
-const TITLE: Record<DisciplineId, [string, string?]> = {
-  canto: ['Canto'],
-  pianoforte: ['Pianoforte', 'e Tastiere'],
-  'chitarra-basso': ['Chitarra', 'e Basso'],
-  batteria: ['Batteria', 'e Percussioni'],
-  archi: ['Archi'],
-  fiati: ['Fiati'],
-  teoria: ['Teoria', 'e Composizione'],
-};
-
-const SUB: Record<DisciplineId, string> = {
-  canto: 'Pop, lirico e musical',
-  pianoforte: 'Armonia, tecnica e repertorio',
-  'chitarra-basso': 'Accordi, tecnica e accompagnamento',
-  batteria: 'Ritmo, coordinazione e groove',
-  archi: 'Violino, viola, violoncello, contrabbasso',
-  fiati: 'Flauto traverso, sax, clarinetto, ottoni',
-  teoria: 'Armonia, solfeggio, analisi',
-};
+/**
+ * Le 9 card della home, come nell'anteprima grafica del committente.
+ * Alcune card aprono la stessa disciplina (Chitarra/Basso → chitarra-basso; Violino/Archi → archi).
+ */
+const CARDS: { key: string; discipline: DisciplineId; title: string; sub: string; img: string }[] = [
+  { key: 'canto', discipline: 'canto', title: 'Canto', sub: 'Pop, lirico e musical', img: 'covers/canto.jpg' },
+  { key: 'pianoforte', discipline: 'pianoforte', title: 'Pianoforte', sub: 'e Tastiere', img: 'covers/pianoforte.jpg' },
+  { key: 'chitarra', discipline: 'chitarra-basso', title: 'Chitarra', sub: 'Classica, Acustica ed Elettrica', img: 'covers/chitarra-basso.jpg' },
+  { key: 'basso', discipline: 'chitarra-basso', title: 'Basso', sub: 'Elettrico e Acustico', img: 'covers/basso.jpg' },
+  { key: 'batteria', discipline: 'batteria', title: 'Batteria', sub: 'e Percussioni', img: 'covers/batteria.jpg' },
+  { key: 'violino', discipline: 'archi', title: 'Violino', sub: 'Viola, Violoncello e Contrabbasso', img: 'covers/archi.jpg' },
+  { key: 'flauto', discipline: 'fiati', title: 'Flauto', sub: 'e Strumenti a Fiato', img: 'covers/flauto.jpg' },
+  { key: 'archi', discipline: 'archi', title: 'Archi', sub: 'Violino, Viola, Violoncello, Contrabbasso', img: 'covers/archi2.jpg' },
+  { key: 'teoria', discipline: 'teoria', title: 'Teoria Musicale', sub: 'Armonia e Composizione', img: 'covers/teoria.jpg' },
+];
 
 export function InstrumentGrid({ hrefFor, selected }: { hrefFor: (id: DisciplineId) => string; selected?: DisciplineId | null }) {
   return (
     <div className="instrument-grid">
-      {DISCIPLINES.map((d) => (
+      {CARDS.map((c) => (
         <Link
-          key={d.id}
-          to={hrefFor(d.id)}
-          className={`instrument-card${selected === d.id ? ' selected' : ''}`}
-          data-testid={`discipline-${d.id}`}
-          aria-current={selected === d.id ? 'true' : undefined}
-          aria-label={d.label}
+          key={c.key}
+          to={hrefFor(c.discipline)}
+          className={`instrument-card${selected === c.discipline ? ' selected' : ''}`}
+          data-testid={`discipline-${c.key}`}
+          aria-label={`${c.title} — ${c.sub}`}
         >
-          <img src={COVER[d.id]} alt="" loading="lazy" />
+          <img src={asset(c.img)} alt="" loading="lazy" />
           <span className="ic-text">
-            <strong>
-              {TITLE[d.id][0]}
-              {TITLE[d.id][1] && <small>{TITLE[d.id][1]}</small>}
-            </strong>
-            <em>{SUB[d.id]}</em>
+            <strong>{c.title}</strong>
+            <em>{c.sub}</em>
           </span>
           <span className="ic-go" aria-hidden="true"><UiIcon name="chevron" size={20} /></span>
         </Link>

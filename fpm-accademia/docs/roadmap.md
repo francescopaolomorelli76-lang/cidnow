@@ -7,7 +7,7 @@ Stati: **implemented** (codice + test automatici locali) · **mock** · **planne
 | A | Fondazioni: monorepo, lint/test, design tokens nero/oro, logo, layout, discipline, Informazioni | — | implemented |
 | B | Auth, modello dati, inviti, approvazione, revoca, isolamento, lezioni base, export/cancellazione | A | implemented (minori: planned) |
 | C | Smart Setup per ruolo: audio in/out, camera, MIDI, test rete, preferenze per dispositivo | A, B | implemented (demo; non verificato su iOS/Android) |
-| D | Lezione canto: WebRTC, signaling, STUN/TURN, MIDI remoto, modalità musica, metriche | B, C, **TURN** | planned |
+| D | Lezione canto: WebRTC, signaling, STUN/TURN, MIDI remoto, modalità musica, metriche | B, C, **TURN** | implemented per stessa rete (Mac + iPad); TURN/reti diverse: blocked |
 | E | Basi sincronizzate WAV/MP3: upload privato, precarico, play/stop/pause/loop/CORREGGI | D | planned |
 | F | Moduli per disciplina: metronomo, spartiti, accordatore, esercizi, calendario completo | A, D | planned |
 | G | Batteria multicamera 1–4 camere per lato | D | planned |

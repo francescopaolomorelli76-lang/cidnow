@@ -6,6 +6,8 @@ export const TEST_DB_URL =
 
 /** Ricrea da zero lo schema del database di TEST (mai quello di sviluppo) e applica le migrazioni. */
 export default async function setup() {
+  // PGlite in memoria: ogni processo di test parte da un database vuoto, migrato in setupApp.
+  if (TEST_DB_URL.startsWith('pglite:')) return;
   if (!/test/.test(new URL(TEST_DB_URL).pathname)) {
     throw new Error('TEST_DATABASE_URL deve puntare a un database il cui nome contiene "test"');
   }

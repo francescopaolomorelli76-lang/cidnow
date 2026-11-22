@@ -1,6 +1,8 @@
 import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify';
 import cookie from '@fastify/cookie';
 import rateLimit from '@fastify/rate-limit';
+import websocket from '@fastify/websocket';
+import type { FastifyRequest } from 'fastify';
 import type { Config } from './config.js';
 import type { Db } from './db.js';
 import { AppError } from './errors.js';
@@ -10,6 +12,8 @@ import { authRoutes } from './routes/auth.js';
 import { teacherRoutes } from './routes/teacher.js';
 import { studentRoutes } from './routes/student.js';
 import { accountRoutes } from './routes/account.js';
+import { rtcRoutes } from './routes/rtc.js';
+import { lanRoutes } from './routes/lan.js';
 
 export interface AppDeps {
   db: Db;
@@ -24,10 +28,24 @@ export interface BuildOptions {
   /** Moltiplicatore dei limiti di frequenza (i test lo alzano per non inciampare nei limiti). */
   rateLimitScale?: number;
   payments?: PaymentProvider;
+  /** Certificato per servire in HTTPS (modalità Mac + iPad). */
+  https?: { key: string; cert: string };
 }
 
 /** Header obbligatorio sulle richieste che modificano dati: un form di un altro sito non può impostarlo. */
 export const CSRF_HEADER = 'x-fpm-client';
+
+/** Origine ammessa: quella configurata oppure la stessa del server (modalità rete locale). */
+export function originAllowed(req: FastifyRequest, webOrigin: string): boolean {
+  const origin = req.headers.origin;
+  if (!origin) return true;
+  if (origin === webOrigin) return true;
+  try {
+    return new URL(origin).host === req.headers.host;
+  } catch {
+    return false;
+  }
+}
 
 export async function buildApp(db: Db, config: Config, opts: BuildOptions = {}): Promise<FastifyInstance> {
   const app = Fastify({
@@ -43,6 +61,7 @@ export async function buildApp(db: Db, config: Config, opts: BuildOptions = {}):
       },
     },
     bodyLimit: 64 * 1024,
+    ...(opts.https ? { https: opts.https } : {}),
     trustProxy: config.NODE_ENV === 'production',
   });
 
@@ -55,6 +74,7 @@ export async function buildApp(db: Db, config: Config, opts: BuildOptions = {}):
   };
 
   await app.register(cookie);
+  await app.register(websocket, { options: { maxPayload: 64 * 1024 } });
   await app.register(rateLimit, {
     global: false,
     max: 100 * scale,
@@ -70,13 +90,15 @@ export async function buildApp(db: Db, config: Config, opts: BuildOptions = {}):
 
   app.addHook('onRequest', async (req) => {
     if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
-      const origin = req.headers.origin;
-      if (origin && origin !== config.WEB_ORIGIN) {
+      if (!originAllowed(req, config.WEB_ORIGIN)) {
         throw new AppError(403, 'bad_origin', 'Origine della richiesta non consentita');
       }
       if (req.headers[CSRF_HEADER] !== 'web') {
         throw new AppError(403, 'csrf', 'Richiesta non valida');
       }
+    }
+    if (req.headers.upgrade === 'websocket' && !originAllowed(req, config.WEB_ORIGIN)) {
+      throw new AppError(403, 'bad_origin', 'Origine della richiesta non consentita');
     }
     req.user = await loadUserFromToken(db, req.cookies[SESSION_COOKIE]);
   });
@@ -103,6 +125,8 @@ export async function buildApp(db: Db, config: Config, opts: BuildOptions = {}):
   await app.register(async (s) => teacherRoutes(s, deps));
   await app.register(async (s) => studentRoutes(s, deps));
   await app.register(async (s) => accountRoutes(s, deps));
+  await app.register(async (s) => rtcRoutes(s, deps));
+  await app.register(async (s) => lanRoutes(s, deps));
 
   return app;
 }

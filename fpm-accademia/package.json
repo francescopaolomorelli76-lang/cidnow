@@ -1,11 +1,17 @@
 {
   "name": "fpm-accademia",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "description": "FPM — Accademia Musicale Online (MVP web/PWA)",
   "type": "module",
-  "workspaces": ["packages/shared", "apps/server", "apps/web"],
-  "engines": { "node": ">=22.12" },
+  "workspaces": [
+    "packages/shared",
+    "apps/server",
+    "apps/web"
+  ],
+  "engines": {
+    "node": ">=22.12"
+  },
   "scripts": {
     "dev": "npm run db:migrate && concurrently -n api,web -c yellow,cyan \"npm run dev -w @fpm/server\" \"npm run dev -w @fpm/web\"",
     "db:migrate": "npm run migrate -w @fpm/server",
@@ -22,6 +28,7 @@
     "@playwright/test": "1.63.0",
     "@types/node": "^24.10.0",
     "concurrently": "^9.2.1",
+    "esbuild": "^0.28.2",
     "eslint": "^10.15.0",
     "eslint-plugin-react-hooks": "^7.0.1",
     "globals": "^16.5.0",
